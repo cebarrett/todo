@@ -22,7 +22,7 @@ export function TodoInput({ onAdd }: TodoInputProps) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Add a new todo..."
-        maxLength={500}
+        maxLength={250}
       />
       <button type="submit">Add</button>
     </form>
