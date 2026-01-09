@@ -53,6 +53,12 @@ h1 {
   gap: 0.75rem;
   cursor: pointer;
   flex: 1;
+  min-width: 0;
+}
+
+.todo-text {
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .todo-item input[type="checkbox"] {
