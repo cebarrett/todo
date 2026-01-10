@@ -1,4 +1,6 @@
 import { Todo } from '../types/Todo'
+import { ListItem, ListItemText, Checkbox, IconButton } from '@mui/material'
+import { Delete as DeleteIcon } from '@mui/icons-material'
 
 interface TodoItemProps {
   todo: Todo
@@ -8,18 +10,27 @@ interface TodoItemProps {
 
 export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
   return (
-    <li className={`todo-item ${todo.completed ? 'completed' : ''}`}>
-      <label>
-        <input
-          type="checkbox"
-          checked={todo.completed}
-          onChange={() => onToggle(todo.id)}
-        />
-        <span className="todo-text">{todo.text}</span>
-      </label>
-      <button className="delete-btn" onClick={() => onDelete(todo.id)}>
-        Delete
-      </button>
-    </li>
+    <ListItem
+      secondaryAction={
+        <IconButton edge="end" aria-label="delete" onClick={() => onDelete(todo.id)}>
+          <DeleteIcon />
+        </IconButton>
+      }
+      disablePadding
+      sx={{ py: 0.5 }}
+    >
+      <Checkbox
+        checked={todo.completed}
+        onChange={() => onToggle(todo.id)}
+        edge="start"
+      />
+      <ListItemText
+        primary={todo.text}
+        sx={{
+          textDecoration: todo.completed ? 'line-through' : 'none',
+          color: todo.completed ? 'text.secondary' : 'text.primary',
+        }}
+      />
+    </ListItem>
   )
 }
