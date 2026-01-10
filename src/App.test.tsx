@@ -66,7 +66,7 @@ describe('App', () => {
 
     expect(screen.getByText('Buy milk')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'delete' }))
 
     expect(screen.queryByText('Buy milk')).not.toBeInTheDocument()
     expect(screen.getByText('No todos yet. Add one above!')).toBeInTheDocument()
