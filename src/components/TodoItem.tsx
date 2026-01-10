@@ -16,13 +16,12 @@ export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
           <DeleteIcon />
         </IconButton>
       }
-      disablePadding
-      sx={{ py: 0.5 }}
+      sx={{ pl: 1, pr: 1, py: 1 }}
     >
       <Checkbox
         checked={todo.completed}
         onChange={() => onToggle(todo.id)}
-        edge="start"
+        sx={{ mr: 1 }}
       />
       <ListItemText
         primary={todo.text}
