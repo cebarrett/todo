@@ -1,6 +1,8 @@
 import { Todo } from '../types/Todo'
 import { ListItem, ListItemText, Checkbox, IconButton, Box } from '@mui/material'
-import { Delete as DeleteIcon, KeyboardArrowUp, KeyboardArrowDown } from '@mui/icons-material'
+import { Delete as DeleteIcon, KeyboardArrowUp, KeyboardArrowDown, DragIndicator } from '@mui/icons-material'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface TodoItemProps {
   todo: Todo
@@ -13,8 +15,25 @@ interface TodoItemProps {
 }
 
 export function TodoItem({ todo, onToggle, onDelete, onMoveUp, onMoveDown, isFirst, isLast }: TodoItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: todo.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
   return (
     <ListItem
+      ref={setNodeRef}
+      style={style}
       secondaryAction={
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <IconButton
@@ -40,6 +59,15 @@ export function TodoItem({ todo, onToggle, onDelete, onMoveUp, onMoveDown, isFir
       }
       sx={{ pl: 1, pr: 1, py: 1 }}
     >
+      <IconButton
+        {...attributes}
+        {...listeners}
+        size="small"
+        sx={{ cursor: 'grab', mr: 1, '&:active': { cursor: 'grabbing' } }}
+        aria-label="drag to reorder"
+      >
+        <DragIndicator />
+      </IconButton>
       <Checkbox
         checked={todo.completed}
         onChange={() => onToggle(todo.id)}

@@ -55,5 +55,14 @@ export function useTodos() {
     })
   }
 
-  return { todos, addTodo, toggleTodo, deleteTodo, moveTodoUp, moveTodoDown }
+  const reorderTodos = (oldIndex: number, newIndex: number) => {
+    setTodos((prev) => {
+      const newTodos = [...prev]
+      const [removed] = newTodos.splice(oldIndex, 1)
+      newTodos.splice(newIndex, 0, removed)
+      return newTodos
+    })
+  }
+
+  return { todos, addTodo, toggleTodo, deleteTodo, moveTodoUp, moveTodoDown, reorderTodos }
 }

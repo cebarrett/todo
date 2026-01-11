@@ -196,4 +196,55 @@ describe('App', () => {
     expect(items[0]).toHaveTextContent('Second')
     expect(items[1]).toHaveTextContent('First')
   })
+
+  it('renders drag handles for each todo item', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'First')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.type(input, 'Second')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    const dragHandles = screen.getAllByRole('button', { name: 'drag to reorder' })
+    expect(dragHandles).toHaveLength(2)
+  })
+
+  it('drag handles have correct accessibility attributes', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'First')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    const dragHandle = screen.getByRole('button', { name: 'drag to reorder' })
+    expect(dragHandle).toHaveAttribute('aria-label', 'drag to reorder')
+    expect(dragHandle).toHaveAttribute('tabindex', '0')
+  })
+
+  it('drag handles are reachable via keyboard tab navigation', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'First')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    const dragHandle = screen.getByRole('button', { name: 'drag to reorder' })
+
+    // Tab through focusable elements until we reach the drag handle
+    let foundDragHandle = false
+    for (let i = 0; i < 10; i++) {
+      await user.tab()
+      if (document.activeElement === dragHandle) {
+        foundDragHandle = true
+        break
+      }
+    }
+
+    expect(foundDragHandle).toBe(true)
+    expect(dragHandle).toHaveFocus()
+  })
 })
