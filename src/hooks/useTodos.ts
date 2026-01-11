@@ -35,5 +35,34 @@ export function useTodos() {
     setTodos((prev) => prev.filter((todo) => todo.id !== id))
   }
 
-  return { todos, addTodo, toggleTodo, deleteTodo }
+  const moveTodoUp = (id: string) => {
+    setTodos((prev) => {
+      const index = prev.findIndex((todo) => todo.id === id)
+      if (index <= 0) return prev
+      const newTodos = [...prev]
+      ;[newTodos[index - 1], newTodos[index]] = [newTodos[index], newTodos[index - 1]]
+      return newTodos
+    })
+  }
+
+  const moveTodoDown = (id: string) => {
+    setTodos((prev) => {
+      const index = prev.findIndex((todo) => todo.id === id)
+      if (index < 0 || index >= prev.length - 1) return prev
+      const newTodos = [...prev]
+      ;[newTodos[index], newTodos[index + 1]] = [newTodos[index + 1], newTodos[index]]
+      return newTodos
+    })
+  }
+
+  const reorderTodos = (oldIndex: number, newIndex: number) => {
+    setTodos((prev) => {
+      const newTodos = [...prev]
+      const [removed] = newTodos.splice(oldIndex, 1)
+      newTodos.splice(newIndex, 0, removed)
+      return newTodos
+    })
+  }
+
+  return { todos, addTodo, toggleTodo, deleteTodo, moveTodoUp, moveTodoDown, reorderTodos }
 }
