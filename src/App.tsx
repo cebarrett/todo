@@ -4,7 +4,7 @@ import { TodoList } from './components/TodoList'
 import { useTodos } from './hooks/useTodos'
 
 function App() {
-  const { todos, addTodo, toggleTodo, deleteTodo } = useTodos()
+  const { todos, addTodo, toggleTodo, deleteTodo, moveTodoUp, moveTodoDown } = useTodos()
 
   return (
     <Container maxWidth="sm">
@@ -13,7 +13,7 @@ function App() {
           Todo List
         </Typography>
         <TodoInput onAdd={addTodo} />
-        <TodoList todos={todos} onToggle={toggleTodo} onDelete={deleteTodo} />
+        <TodoList todos={todos} onToggle={toggleTodo} onDelete={deleteTodo} onMoveUp={moveTodoUp} onMoveDown={moveTodoDown} />
       </Box>
     </Container>
   )
