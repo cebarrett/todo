@@ -3,17 +3,29 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import App from './App'
 
-// Mock Clerk to simulate signed-in state for tests
+// Variable to control mock auth state
+let mockSignedIn = true
+
+// Mock Clerk with configurable auth state
 vi.mock('@clerk/clerk-react', () => ({
-  SignedIn: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  SignedOut: () => null,
-  SignInButton: () => null,
+  SignedIn: ({ children }: { children: React.ReactNode }) => mockSignedIn ? <>{children}</> : null,
+  SignedOut: ({ children }: { children: React.ReactNode }) => mockSignedIn ? null : <>{children}</>,
+  SignInButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   UserButton: () => null,
 }))
 
 describe('App', () => {
   beforeEach(() => {
     localStorage.clear()
+    mockSignedIn = true
+  })
+
+  it('shows sign-in prompt when signed out', () => {
+    mockSignedIn = false
+    render(<App />)
+    expect(screen.getByText('Sign in to manage your todos')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Add a new todo...')).not.toBeInTheDocument()
   })
 
   it('shows empty message when no todos', () => {
