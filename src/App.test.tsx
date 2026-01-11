@@ -1,7 +1,15 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import App from './App'
+
+// Mock Clerk to simulate signed-in state for tests
+vi.mock('@clerk/clerk-react', () => ({
+  SignedIn: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SignedOut: () => null,
+  SignInButton: () => null,
+  UserButton: () => null,
+}))
 
 describe('App', () => {
   beforeEach(() => {
