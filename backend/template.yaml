@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Todo App API
+
+Parameters:
+  ClerkSecretKey:
+    Type: String
+    Description: Clerk Secret Key for JWT verification
+    NoEcho: true
+
+Globals:
+  Function:
+    Timeout: 10
+    Runtime: nodejs20.x
+    Environment:
+      Variables:
+        TABLE_NAME: todo-app-todos
+        CLERK_SECRET_KEY: !Ref ClerkSecretKey
+
+Resources:
+  TodoApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  TodoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handler.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: todo-app-todos
+      Events:
+        ListTodos:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoApi
+            Path: /todos
+            Method: GET
+        CreateTodo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoApi
+            Path: /todos
+            Method: POST
+        UpdateTodo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoApi
+            Path: /todos/{todoId}
+            Method: PUT
+        DeleteTodo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoApi
+            Path: /todos/{todoId}
+            Method: DELETE
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${TodoApi}.execute-api.${AWS::Region}.amazonaws.com"
