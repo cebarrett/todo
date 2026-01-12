@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand, DeleteCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { verifyToken } from '@clerk/backend';
 
 const client = new DynamoDBClient({});
@@ -91,6 +91,19 @@ async function deleteTodo(userId, todoId) {
 
 // PATCH /todos/reorder - Update order of todos
 async function reorderTodos(userId, todoIds) {
+  // Validate input
+  if (!Array.isArray(todoIds) || todoIds.length === 0 || todoIds.length > 1000) {
+    throw new Error('Invalid todoIds array');
+  }
+
+  // Verify all todoIds belong to this user
+  const existingTodos = await listTodos(userId);
+  const existingIds = new Set(existingTodos.map(t => t.todoId));
+  const allValid = todoIds.every(id => existingIds.has(id));
+  if (!allValid) {
+    throw new Error('Invalid todoId in array');
+  }
+
   // Update each todo with its new order based on position in array
   const updatePromises = todoIds.map((todoId, index) =>
     docClient.send(new UpdateCommand({
