@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand, DeleteCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { verifyToken } from '@clerk/backend';
 
 const client = new DynamoDBClient({});
@@ -12,7 +12,7 @@ const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
 };
 
 // Verify Clerk JWT and extract userId
@@ -32,23 +32,30 @@ async function authenticateRequest(event) {
   }
 }
 
-// GET /todos - List all todos for user
+// GET /todos - List all todos for user, sorted by order
 async function listTodos(userId) {
   const result = await docClient.send(new QueryCommand({
     TableName: TABLE_NAME,
     KeyConditionExpression: 'userId = :userId',
     ExpressionAttributeValues: { ':userId': userId },
   }));
-  return result.Items || [];
+  const items = result.Items || [];
+  // Sort by order field (items without order go to end)
+  return items.sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
 }
 
 // POST /todos - Create a new todo
 async function createTodo(userId, todo) {
+  // Get current todos to determine next order value
+  const existing = await listTodos(userId);
+  const maxOrder = existing.reduce((max, t) => Math.max(max, t.order ?? 0), 0);
+
   const item = {
     userId,
     todoId: todo.id,
     text: todo.text,
     completed: todo.completed,
+    order: maxOrder + 1,
     createdAt: new Date().toISOString(),
   };
   await docClient.send(new PutCommand({
@@ -82,6 +89,21 @@ async function deleteTodo(userId, todoId) {
   }));
 }
 
+// PATCH /todos/reorder - Update order of todos
+async function reorderTodos(userId, todoIds) {
+  // Update each todo with its new order based on position in array
+  const updatePromises = todoIds.map((todoId, index) =>
+    docClient.send(new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { userId, todoId },
+      UpdateExpression: 'SET #order = :order',
+      ExpressionAttributeNames: { '#order': 'order' },
+      ExpressionAttributeValues: { ':order': index },
+    }))
+  );
+  await Promise.all(updatePromises);
+}
+
 export const handler = async (event) => {
   // Handle CORS preflight
   if (event.requestContext?.http?.method === 'OPTIONS') {
@@ -100,9 +122,17 @@ export const handler = async (event) => {
 
   const method = event.requestContext?.http?.method;
   const path = event.rawPath;
-  const todoId = path.match(/\/todos\/(.+)/)?.[1];
+  const todoId = path.match(/\/todos\/([^/]+)$/)?.[1];
+  const isReorderPath = path === '/todos/reorder';
 
   try {
+    // Handle reorder endpoint
+    if (method === 'PATCH' && isReorderPath) {
+      const body = JSON.parse(event.body);
+      await reorderTodos(userId, body.todoIds);
+      return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
+    }
+
     switch (method) {
       case 'GET': {
         const todos = await listTodos(userId);

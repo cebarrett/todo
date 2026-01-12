@@ -109,12 +109,24 @@ export function useTodos() {
     }
   }
 
+  const persistOrder = async (newTodos: Todo[]) => {
+    try {
+      await fetchWithAuth('/todos/reorder', {
+        method: 'PATCH',
+        body: JSON.stringify({ todoIds: newTodos.map((t) => t.id) }),
+      })
+    } catch (error) {
+      console.error('Failed to persist order:', error)
+    }
+  }
+
   const moveTodoUp = (id: string) => {
     setTodos((prev) => {
       const index = prev.findIndex((todo) => todo.id === id)
       if (index <= 0) return prev
       const newTodos = [...prev]
       ;[newTodos[index - 1], newTodos[index]] = [newTodos[index], newTodos[index - 1]]
+      persistOrder(newTodos)
       return newTodos
     })
   }
@@ -125,6 +137,7 @@ export function useTodos() {
       if (index < 0 || index >= prev.length - 1) return prev
       const newTodos = [...prev]
       ;[newTodos[index], newTodos[index + 1]] = [newTodos[index + 1], newTodos[index]]
+      persistOrder(newTodos)
       return newTodos
     })
   }
@@ -134,6 +147,7 @@ export function useTodos() {
       const newTodos = [...prev]
       const [removed] = newTodos.splice(oldIndex, 1)
       newTodos.splice(newIndex, 0, removed)
+      persistOrder(newTodos)
       return newTodos
     })
   }

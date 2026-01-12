@@ -58,6 +58,20 @@ global.fetch = vi.fn((url: string, options?: RequestInit) => {
     return Promise.resolve({ ok: true } as Response)
   }
 
+  if (method === 'PATCH' && path === '/todos/reorder') {
+    const body = JSON.parse(options?.body as string)
+    const reorderedTodos: typeof mockTodos = []
+    for (const todoId of body.todoIds) {
+      const todo = mockTodos.find((t) => t.todoId === todoId)
+      if (todo) reorderedTodos.push(todo)
+    }
+    mockTodos = reorderedTodos
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    } as Response)
+  }
+
   return Promise.resolve({ ok: false } as Response)
 })
 
