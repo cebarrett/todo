@@ -1,11 +1,11 @@
-import { Container, Typography, Box, Button } from '@mui/material'
+import { Container, Typography, Box, Button, CircularProgress } from '@mui/material'
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
 import { TodoInput } from './components/TodoInput'
 import { TodoList } from './components/TodoList'
 import { useTodos } from './hooks/useTodos'
 
 function App() {
-  const { todos, addTodo, toggleTodo, deleteTodo, moveTodoUp, moveTodoDown, reorderTodos } = useTodos()
+  const { todos, isLoading, addTodo, toggleTodo, deleteTodo, moveTodoUp, moveTodoDown, reorderTodos } = useTodos()
 
   return (
     <Container maxWidth="sm">
@@ -25,8 +25,16 @@ function App() {
         </Box>
 
         <SignedIn>
-          <TodoInput onAdd={addTodo} />
-          <TodoList todos={todos} onToggle={toggleTodo} onDelete={deleteTodo} onMoveUp={moveTodoUp} onMoveDown={moveTodoDown} onReorder={reorderTodos} />
+          {isLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              <TodoInput onAdd={addTodo} />
+              <TodoList todos={todos} onToggle={toggleTodo} onDelete={deleteTodo} onMoveUp={moveTodoUp} onMoveDown={moveTodoDown} onReorder={reorderTodos} />
+            </>
+          )}
         </SignedIn>
 
         <SignedOut>

@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Todo App API
+
+Parameters:
+  ClerkSecretKey:
+    Type: String
+    Description: Clerk Secret Key for JWT verification
+    NoEcho: true
+
+Globals:
+  Function:
+    Timeout: 10
+    Runtime: nodejs22.x
+    Environment:
+      Variables:
+        TABLE_NAME: todo-app-todos
+        # TODO: Move to AWS Secrets Manager to avoid exposing secret in Lambda console
+        CLERK_SECRET_KEY: !Ref ClerkSecretKey
+
+Resources:
+  TodoApi:
+    Type: AWS::Serverless::HttpApi
+    # TODO: Add throttling (ThrottlingBurstLimit, ThrottlingRateLimit) to prevent abuse
+    Properties:
+      # TODO: Replace wildcard origin with specific allowed origins for production
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+
+  TodoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handler.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: todo-app-todos
+      Events:
+        ListTodos:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoApi
+            Path: /todos
+            Method: GET
+        CreateTodo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoApi
+            Path: /todos
+            Method: POST
+        UpdateTodo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoApi
+            Path: /todos/{todoId}
+            Method: PUT
+        DeleteTodo:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoApi
+            Path: /todos/{todoId}
+            Method: DELETE
+        ReorderTodos:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref TodoApi
+            Path: /todos/reorder
+            Method: PATCH
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${TodoApi}.execute-api.${AWS::Region}.amazonaws.com"
