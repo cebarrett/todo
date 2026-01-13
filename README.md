@@ -5,9 +5,11 @@ A todo list app built with React, TypeScript, and Vite. Features Clerk authentic
 ## Architecture
 
 ```
+CloudFront → S3 (frontend)
+     ↓
 React App → API Gateway → Lambda → DynamoDB
-              ↑
-        Clerk JWT auth
+                 ↑
+           Clerk JWT auth
 ```
 
 ## Setup
@@ -37,7 +39,32 @@ sam deploy --stack-name todo-app --capabilities CAPABILITY_IAM \
   --resolve-s3 --parameter-overrides ClerkSecretKey=$CLERK_SECRET_KEY
 ```
 
-The DynamoDB table `todo-app-todos` must exist with `userId` (partition key) and `todoId` (sort key).
+This creates:
+- DynamoDB table (`todo-app-todos`)
+- Lambda function with API Gateway
+- S3 bucket for frontend hosting
+- CloudFront distribution
+
+## Deployment
+
+After deploying the backend, upload the frontend to S3:
+
+```bash
+npm run build
+aws s3 sync dist/ s3://todo-app-frontend-<account-id>/ --delete
+```
+
+To invalidate CloudFront cache after updates:
+
+```bash
+aws cloudfront create-invalidation --distribution-id <dist-id> --paths "/*"
+```
+
+Get the CloudFront URL and S3 bucket name from the stack outputs:
+
+```bash
+aws cloudformation describe-stacks --stack-name todo-app --query "Stacks[0].Outputs"
+```
 
 ## Development
 
