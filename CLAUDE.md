@@ -6,6 +6,7 @@ This document provides essential context for AI assistants working on this codeb
 
 A full-stack todo list application featuring:
 - React 19 + TypeScript frontend with Material-UI
+- S3 + CloudFront static hosting
 - AWS Lambda + API Gateway serverless backend
 - DynamoDB for persistent storage
 - Clerk authentication
@@ -14,6 +15,8 @@ A full-stack todo list application featuring:
 ## Architecture
 
 ```
+CloudFront → S3 (static frontend)
+     ↓
 Frontend (React/Vite) → API Gateway → Lambda Functions → DynamoDB
                             ↑
                     Clerk JWT Authentication
@@ -22,6 +25,7 @@ Frontend (React/Vite) → API Gateway → Lambda Functions → DynamoDB
 ## Tech Stack
 
 **Frontend:** React 19, TypeScript, Vite, Material-UI, @dnd-kit, Clerk
+**Hosting:** S3, CloudFront
 **Backend:** Node.js 22, AWS Lambda, DynamoDB, Clerk JWT verification
 **Testing:** Vitest, React Testing Library, jsdom
 
@@ -70,6 +74,11 @@ cd backend
 npm install          # Install backend dependencies
 sam build            # Build Lambda function
 sam deploy --stack-name todo-app --capabilities CAPABILITY_IAM --resolve-s3 --parameter-overrides ClerkSecretKey=$CLERK_SECRET_KEY
+
+# Deploy frontend to S3/CloudFront
+npm run build
+aws s3 sync dist/ s3://<bucket-name>/ --delete
+aws cloudfront create-invalidation --distribution-id <dist-id> --paths "/*"  # Optional: clear cache
 ```
 
 ## Environment Variables
@@ -88,7 +97,7 @@ sam deploy --stack-name todo-app --capabilities CAPABILITY_IAM --resolve-s3 --pa
 | `src/hooks/useTodos.ts` | Todo CRUD operations, API calls, optimistic updates |
 | `src/components/TodoItem.tsx` | Individual todo with drag-drop, toggle, delete |
 | `backend/handler.mjs` | All Lambda endpoints, auth, DynamoDB operations |
-| `backend/template.yaml` | AWS infrastructure definition |
+| `backend/template.yaml` | AWS infrastructure (Lambda, API Gateway, DynamoDB, S3, CloudFront) |
 
 ## API Endpoints
 
