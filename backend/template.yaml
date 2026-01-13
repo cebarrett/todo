@@ -14,11 +14,27 @@ Globals:
     Runtime: nodejs22.x
     Environment:
       Variables:
-        TABLE_NAME: todo-app-todos
+        TABLE_NAME: !Ref TodoTable
         # TODO: Move to AWS Secrets Manager to avoid exposing secret in Lambda console
         CLERK_SECRET_KEY: !Ref ClerkSecretKey
 
 Resources:
+  TodoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: todo-app-todos
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: todoId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: todoId
+          KeyType: RANGE
+
   TodoApi:
     Type: AWS::Serverless::HttpApi
     # TODO: Add throttling (ThrottlingBurstLimit, ThrottlingRateLimit) to prevent abuse
@@ -45,7 +61,7 @@ Resources:
       Handler: handler.handler
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: todo-app-todos
+            TableName: !Ref TodoTable
       Events:
         ListTodos:
           Type: HttpApi
