@@ -8,6 +8,7 @@ const TABLE_NAME = process.env.TABLE_NAME;
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
 
 // CORS headers
+// TODO: Replace wildcard origin with specific allowed origins for production
 const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
@@ -45,6 +46,7 @@ async function listTodos(userId) {
 }
 
 // POST /todos - Create a new todo
+// TODO: Generate todoId server-side instead of accepting client-provided ID
 async function createTodo(userId, todo) {
   // Get current todos to determine next order value
   const existing = await listTodos(userId);
@@ -76,6 +78,7 @@ async function updateTodo(userId, todoId, updates) {
       ':text': updates.text,
       ':completed': updates.completed,
     },
+    ConditionExpression: 'attribute_exists(todoId)',
     ReturnValues: 'ALL_NEW',
   }));
   return result.Attributes;
@@ -176,6 +179,13 @@ export const handler = async (event) => {
     }
   } catch (error) {
     console.error('Error:', error);
+    if (error.name === 'ConditionalCheckFailedException') {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ error: 'Todo not found' }),
+      };
+    }
     return {
       statusCode: 500,
       headers,

@@ -11,16 +11,19 @@ Parameters:
 Globals:
   Function:
     Timeout: 10
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Environment:
       Variables:
         TABLE_NAME: todo-app-todos
+        # TODO: Move to AWS Secrets Manager to avoid exposing secret in Lambda console
         CLERK_SECRET_KEY: !Ref ClerkSecretKey
 
 Resources:
   TodoApi:
     Type: AWS::Serverless::HttpApi
+    # TODO: Add throttling (ThrottlingBurstLimit, ThrottlingRateLimit) to prevent abuse
     Properties:
+      # TODO: Replace wildcard origin with specific allowed origins for production
       CorsConfiguration:
         AllowOrigins:
           - "*"

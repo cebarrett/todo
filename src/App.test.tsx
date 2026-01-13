@@ -200,6 +200,58 @@ describe('App', () => {
     expect(screen.getByText('No todos yet. Add one above!')).toBeInTheDocument()
   })
 
+  it('moves a todo up in the list', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Add a new todo...')).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'First')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.type(input, 'Second')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    const items = screen.getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('First')
+    expect(items[1]).toHaveTextContent('Second')
+
+    const moveUpButtons = screen.getAllByRole('button', { name: 'move up' })
+    await user.click(moveUpButtons[1])
+
+    await waitFor(() => {
+      const reorderedItems = screen.getAllByRole('listitem')
+      expect(reorderedItems[0]).toHaveTextContent('Second')
+      expect(reorderedItems[1]).toHaveTextContent('First')
+    })
+  })
+
+  it('moves a todo down in the list', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Add a new todo...')).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'First')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.type(input, 'Second')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    const moveDownButtons = screen.getAllByRole('button', { name: 'move down' })
+    await user.click(moveDownButtons[0])
+
+    await waitFor(() => {
+      const reorderedItems = screen.getAllByRole('listitem')
+      expect(reorderedItems[0]).toHaveTextContent('Second')
+      expect(reorderedItems[1]).toHaveTextContent('First')
+    })
+  })
+
   it('disables move up button for first item', async () => {
     const user = userEvent.setup()
     render(<App />)
