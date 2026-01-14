@@ -7,14 +7,23 @@ const docClient = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.TABLE_NAME;
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
 
-// CORS headers
-// TODO: Replace wildcard origin with specific allowed origins for production
-const headers = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-};
+// CORS configuration
+const ALLOWED_ORIGINS = [
+  'https://app.cebarrett.me',
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
+
+function getCorsHeaders(event) {
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  };
+}
 
 // Verify Clerk JWT and extract userId
 async function authenticateRequest(event) {
@@ -121,6 +130,8 @@ async function reorderTodos(userId, todoIds) {
 }
 
 export const handler = async (event) => {
+  const headers = getCorsHeaders(event);
+
   // Handle CORS preflight
   if (event.requestContext?.http?.method === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };

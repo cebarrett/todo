@@ -39,10 +39,11 @@ Resources:
     Type: AWS::Serverless::HttpApi
     # TODO: Add throttling (ThrottlingBurstLimit, ThrottlingRateLimit) to prevent abuse
     Properties:
-      # TODO: Replace wildcard origin with specific allowed origins for production
       CorsConfiguration:
         AllowOrigins:
-          - "*"
+          - "https://app.cebarrett.me"
+          - "http://localhost:5173"
+          - "http://localhost:4173"
         AllowHeaders:
           - Content-Type
           - Authorization
