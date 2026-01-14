@@ -8,6 +8,21 @@ Parameters:
     Description: Clerk Secret Key for JWT verification
     NoEcho: true
 
+  DomainName:
+    Type: String
+    Description: Custom domain name (e.g., app.example.com). Leave empty to use CloudFront domain.
+    Default: ""
+
+  CertificateArn:
+    Type: String
+    Description: ACM certificate ARN (must be in us-east-1). Required if DomainName is set.
+    Default: ""
+
+Conditions:
+  HasCustomDomain: !And
+    - !Not [!Equals [!Ref DomainName, ""]]
+    - !Not [!Equals [!Ref CertificateArn, ""]]
+
 Globals:
   Function:
     Timeout: 10
@@ -136,6 +151,10 @@ Resources:
       DistributionConfig:
         Enabled: true
         DefaultRootObject: index.html
+        Aliases: !If
+          - HasCustomDomain
+          - - !Ref DomainName
+          - !Ref AWS::NoValue
         Origins:
           - Id: S3Origin
             DomainName: !GetAtt FrontendBucket.RegionalDomainName
@@ -147,6 +166,12 @@ Resources:
           ViewerProtocolPolicy: redirect-to-https
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
           Compress: true
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
         CustomErrorResponses:
           - ErrorCode: 403
             ResponseCode: 200
