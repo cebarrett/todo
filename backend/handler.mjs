@@ -130,6 +130,12 @@ async function reorderTodos(userId, todoIds) {
 }
 
 export const handler = async (event) => {
+  // Handle warming event (CloudWatch scheduled event)
+  if (event.source === 'aws.events') {
+    console.log('Warming event received');
+    return { statusCode: 200, body: 'warm' };
+  }
+
   const headers = getCorsHeaders(event);
 
   // Handle CORS preflight
