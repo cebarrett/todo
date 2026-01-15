@@ -49,6 +49,11 @@ CloudFront (HTTPS) → S3 (private bucket)
 - Lambda has least-privilege access (DynamoDB CRUD for its table only)
 - No wildcard resource permissions
 
+### API Throttling
+- Rate limited to 10 requests/second
+- Burst limit of 20 concurrent requests
+- Protects against DoS and cost attacks
+
 ## Remaining Issues
 
 ### Medium Severity
@@ -57,7 +62,6 @@ CloudFront (HTTPS) → S3 (private bucket)
 |-------|----------|------|----------------|
 | Clerk secret in env var | `template.yaml:34` | Visible in Lambda console to AWS users | Move to AWS Secrets Manager |
 | Client-generated todoId | `handler.mjs:57` | Client controls ID, could cause conflicts | Generate UUID server-side |
-| No API throttling | `template.yaml:55` | DoS/cost attacks possible | Add `ThrottlingBurstLimit` / `ThrottlingRateLimit` |
 
 ### Low Severity
 
@@ -70,16 +74,7 @@ CloudFront (HTTPS) → S3 (private bucket)
 
 ### High Priority
 
-1. **Add API throttling** to prevent abuse:
-   ```yaml
-   TodoApi:
-     Type: AWS::Serverless::HttpApi
-     Properties:
-       ThrottlingBurstLimit: 100
-       ThrottlingRateLimit: 50
-   ```
-
-2. **Generate todoId server-side**:
+1. **Generate todoId server-side**:
    ```javascript
    import { randomUUID } from 'crypto';
    const item = {
@@ -91,12 +86,12 @@ CloudFront (HTTPS) → S3 (private bucket)
 
 ### Medium Priority
 
-3. **Move Clerk secret to Secrets Manager**:
+2. **Move Clerk secret to Secrets Manager**:
    - Create secret in AWS Secrets Manager
    - Grant Lambda permission to read it
    - Fetch at cold start, cache in memory
 
-4. **Add input validation**:
+3. **Add input validation**:
    ```javascript
    if (!todo.text || todo.text.length > 1000) {
      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid text' }) };
@@ -105,12 +100,12 @@ CloudFront (HTTPS) → S3 (private bucket)
 
 ### Low Priority
 
-5. **Add security headers** to CloudFront:
+4. **Add security headers** to CloudFront:
    ```yaml
    ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03  # SecurityHeadersPolicy
    ```
 
-6. **Enable DynamoDB point-in-time recovery** for data protection:
+5. **Enable DynamoDB point-in-time recovery** for data protection:
    ```yaml
    TodoTable:
      Type: AWS::DynamoDB::Table
