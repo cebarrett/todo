@@ -75,6 +75,7 @@ Resources:
     Properties:
       CodeUri: ./
       Handler: handler.handler
+      MemorySize: 512
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TodoTable
