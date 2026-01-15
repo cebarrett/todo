@@ -57,7 +57,7 @@ export function TodoItem({ todo, onToggle, onDelete, onMoveUp, onMoveDown, isFir
           </IconButton>
         </Box>
       }
-      sx={{ pl: 1, pr: 1, py: 1 }}
+      sx={{ pl: 1, pr: '130px', py: 1 }}
     >
       <IconButton
         {...attributes}
@@ -78,6 +78,8 @@ export function TodoItem({ todo, onToggle, onDelete, onMoveUp, onMoveDown, isFir
         sx={{
           textDecoration: todo.completed ? 'line-through' : 'none',
           color: todo.completed ? 'text.secondary' : 'text.primary',
+          minWidth: 0,
+          wordBreak: 'break-word',
         }}
       />
     </ListItem>
