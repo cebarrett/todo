@@ -52,8 +52,11 @@ Resources:
 
   TodoApi:
     Type: AWS::Serverless::HttpApi
-    # TODO: Add throttling (ThrottlingBurstLimit, ThrottlingRateLimit) to prevent abuse
     Properties:
+      StageName: $default
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
       CorsConfiguration:
         AllowOrigins:
           - "https://app.cebarrett.me"
