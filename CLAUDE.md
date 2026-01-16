@@ -216,4 +216,4 @@ Tests mock both Clerk auth and fetch API.
 
 ## Known TODOs in Code
 
-1. Add input validation for todo text length (`backend/handler.mjs`)
+None - all security items addressed.

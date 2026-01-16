@@ -86,6 +86,22 @@ async function listTodos(userId) {
   return items.sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
 }
 
+const MAX_TEXT_LENGTH = 1000;
+
+function validateTodoText(text) {
+  if (!text || typeof text !== 'string') {
+    return 'Text is required';
+  }
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    return 'Text cannot be empty';
+  }
+  if (trimmed.length > MAX_TEXT_LENGTH) {
+    return `Text cannot exceed ${MAX_TEXT_LENGTH} characters`;
+  }
+  return null;
+}
+
 // POST /todos - Create a new todo
 async function createTodo(userId, todo) {
   // Get current todos to determine next order value
@@ -204,6 +220,10 @@ export const handler = async (event) => {
       }
       case 'POST': {
         const body = JSON.parse(event.body);
+        const textError = validateTodoText(body.text);
+        if (textError) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: textError }) };
+        }
         const todo = await createTodo(userId, body);
         return { statusCode: 201, headers, body: JSON.stringify(todo) };
       }
@@ -212,6 +232,10 @@ export const handler = async (event) => {
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing todoId' }) };
         }
         const body = JSON.parse(event.body);
+        const textError = validateTodoText(body.text);
+        if (textError) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: textError }) };
+        }
         const todo = await updateTodo(userId, todoId, body);
         return { statusCode: 200, headers, body: JSON.stringify(todo) };
       }
