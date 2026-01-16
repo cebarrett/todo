@@ -74,7 +74,7 @@ npm test -- --run    # Run tests once
 cd backend
 npm install          # Install backend dependencies
 sam build            # Build Lambda function
-sam deploy --parameter-overrides ClerkSecretKey=$CLERK_SECRET_KEY  # Other params in samconfig.toml
+sam deploy              # All params in samconfig.toml (secret in AWS Secrets Manager)
 
 # Deploy frontend to S3/CloudFront
 npm run build
@@ -216,6 +216,5 @@ Tests mock both Clerk auth and fetch API.
 
 ## Known TODOs in Code
 
-1. Move Clerk secret to Secrets Manager (`backend/handler.mjs`)
-2. Generate todoId server-side instead of client (`backend/handler.mjs`)
-3. Add input validation for todo text length (`backend/handler.mjs`)
+1. Generate todoId server-side instead of client (`backend/handler.mjs`)
+2. Add input validation for todo text length (`backend/handler.mjs`)

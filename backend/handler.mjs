@@ -1,11 +1,27 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { verifyToken } from '@clerk/backend';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
+const secretsClient = new SecretsManagerClient({});
 const TABLE_NAME = process.env.TABLE_NAME;
-const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
+const CLERK_SECRET_ARN = process.env.CLERK_SECRET_ARN;
+
+// Cache the secret in memory (persists across warm invocations)
+let cachedClerkSecretKey = null;
+
+async function getClerkSecretKey() {
+  if (cachedClerkSecretKey) {
+    return cachedClerkSecretKey;
+  }
+  const response = await secretsClient.send(
+    new GetSecretValueCommand({ SecretId: CLERK_SECRET_ARN })
+  );
+  cachedClerkSecretKey = response.SecretString;
+  return cachedClerkSecretKey;
+}
 
 // CORS configuration
 const ALLOWED_ORIGINS = [
@@ -34,7 +50,8 @@ async function authenticateRequest(event) {
 
   const token = authHeader.substring(7);
   try {
-    const { sub: userId } = await verifyToken(token, { secretKey: CLERK_SECRET_KEY });
+    const secretKey = await getClerkSecretKey();
+    const { sub: userId } = await verifyToken(token, { secretKey });
     return userId;
   } catch (error) {
     console.error('Token verification failed:', error);
