@@ -113,6 +113,11 @@ Resources:
             ApiId: !Ref TodoApi
             Path: /todos/reorder
             Method: PATCH
+        Warmer:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Description: Keep Lambda warm to avoid cold starts
 
   # Frontend hosting resources
   FrontendBucket:
