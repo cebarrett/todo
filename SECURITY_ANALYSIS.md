@@ -47,6 +47,7 @@ CloudFront (HTTPS) → S3 (private bucket)
 - HTTPS enforced (CloudFront redirects HTTP → HTTPS)
 - TLS 1.2+ minimum protocol version
 - Custom domain with ACM certificate
+- Security headers via CloudFront (HSTS, X-Content-Type-Options, X-Frame-Options, etc.)
 
 ### CORS
 - Restricted to specific origins:
@@ -71,15 +72,6 @@ CloudFront (HTTPS) → S3 (private bucket)
 | Issue | Location | Risk | Recommendation |
 |-------|----------|------|----------------|
 | Verbose error logging | `handler.mjs:67` | Token errors in CloudWatch | Reduce verbosity in production |
-
-## Recommendations
-
-### Low Priority
-
-1. **Add security headers** to CloudFront:
-   ```yaml
-   ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03  # SecurityHeadersPolicy
-   ```
 
 ## Not Applicable / Out of Scope
 
