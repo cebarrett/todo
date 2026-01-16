@@ -48,6 +48,8 @@ Resources:
           KeyType: HASH
         - AttributeName: todoId
           KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
 
   TodoApi:
     Type: AWS::Serverless::HttpApi
