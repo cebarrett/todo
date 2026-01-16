@@ -43,6 +43,7 @@ CloudFront (HTTPS) → S3 (private bucket)
 - HTTPS enforced (CloudFront redirects HTTP → HTTPS)
 - TLS 1.2+ minimum protocol version
 - Custom domain with ACM certificate
+- Security headers via CloudFront (HSTS, X-Content-Type-Options, X-Frame-Options, etc.)
 
 ### CORS
 - Restricted to specific origins:
@@ -72,12 +73,7 @@ CloudFront (HTTPS) → S3 (private bucket)
 
 ### Low Priority
 
-1. **Add security headers** to CloudFront:
-   ```yaml
-   ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03  # SecurityHeadersPolicy
-   ```
-
-2. **Enable DynamoDB point-in-time recovery** for data protection:
+1. **Enable DynamoDB point-in-time recovery** for data protection:
    ```yaml
    TodoTable:
      Type: AWS::DynamoDB::Table
