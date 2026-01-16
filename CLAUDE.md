@@ -50,6 +50,7 @@ Frontend (React/Vite) → API Gateway → Lambda Functions → DynamoDB
 ├── backend/               # AWS Lambda backend
 │   ├── handler.mjs        # All API endpoints
 │   ├── template.yaml      # SAM CloudFormation template
+│   ├── samconfig.toml     # SAM deployment configuration
 │   └── package.json       # Backend dependencies
 ├── package.json           # Frontend dependencies
 ├── tsconfig.json          # TypeScript config (strict mode)
@@ -73,7 +74,7 @@ npm test -- --run    # Run tests once
 cd backend
 npm install          # Install backend dependencies
 sam build            # Build Lambda function
-sam deploy --stack-name todo-app --capabilities CAPABILITY_IAM --resolve-s3 --parameter-overrides ClerkSecretKey=$CLERK_SECRET_KEY
+sam deploy --parameter-overrides ClerkSecretKey=$CLERK_SECRET_KEY  # Other params in samconfig.toml
 
 # Deploy frontend to S3/CloudFront
 npm run build
@@ -209,12 +210,12 @@ Tests mock both Clerk auth and fetch API.
 - All API calls require valid Clerk JWT
 - User isolation: todos partitioned by userId
 - Input validation on both frontend and backend
-- TODO: Replace wildcard CORS with specific origins in production
-- TODO: Move Clerk secret to AWS Secrets Manager
+- CORS restricted to specific origins (production + localhost dev)
+- API rate limited (10 req/s, 20 burst)
+- See SECURITY_ANALYSIS.md for full security review
 
 ## Known TODOs in Code
 
-1. Add API throttling (`backend/handler.mjs`)
-2. Restrict CORS origins for production (`backend/template.yaml`)
-3. Move Clerk secret to Secrets Manager (`backend/handler.mjs`)
-4. Generate todoId server-side instead of client (`backend/handler.mjs`)
+1. Move Clerk secret to Secrets Manager (`backend/handler.mjs`)
+2. Generate todoId server-side instead of client (`backend/handler.mjs`)
+3. Add input validation for todo text length (`backend/handler.mjs`)

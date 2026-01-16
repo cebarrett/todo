@@ -1,0 +1,17 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "todo-app"
+region = "us-west-2"
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+confirm_changeset = false
+
+parameter_overrides = [
+    "DomainName=app.cebarrett.me",
+    "CertificateArn=arn:aws:acm:us-east-1:894183034230:certificate/4ae584df-c330-459d-8b8a-4f7ad94c8908"
+]
+
+[default.build.parameters]
+cached = true
+parallel = true
