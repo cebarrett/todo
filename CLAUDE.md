@@ -216,5 +216,4 @@ Tests mock both Clerk auth and fetch API.
 
 ## Known TODOs in Code
 
-1. Generate todoId server-side instead of client (`backend/handler.mjs`)
-2. Add input validation for todo text length (`backend/handler.mjs`)
+1. Add input validation for todo text length (`backend/handler.mjs`)

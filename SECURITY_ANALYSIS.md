@@ -57,12 +57,6 @@ CloudFront (HTTPS) → S3 (private bucket)
 
 ## Remaining Issues
 
-### Medium Severity
-
-| Issue | Location | Risk | Recommendation |
-|-------|----------|------|----------------|
-| Client-generated todoId | `handler.mjs:75` | Client controls ID, could cause conflicts | Generate UUID server-side |
-
 ### Low Severity
 
 | Issue | Location | Risk | Recommendation |
@@ -72,21 +66,9 @@ CloudFront (HTTPS) → S3 (private bucket)
 
 ## Recommendations
 
-### High Priority
-
-1. **Generate todoId server-side**:
-   ```javascript
-   import { randomUUID } from 'crypto';
-   const item = {
-     userId,
-     todoId: randomUUID(),  // Server-generated instead of client-provided
-     // ...
-   };
-   ```
-
 ### Medium Priority
 
-2. **Add input validation**:
+1. **Add input validation**:
    ```javascript
    if (!todo.text || todo.text.length > 1000) {
      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid text' }) };
@@ -95,12 +77,12 @@ CloudFront (HTTPS) → S3 (private bucket)
 
 ### Low Priority
 
-4. **Add security headers** to CloudFront:
+2. **Add security headers** to CloudFront:
    ```yaml
    ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03  # SecurityHeadersPolicy
    ```
 
-5. **Enable DynamoDB point-in-time recovery** for data protection:
+3. **Enable DynamoDB point-in-time recovery** for data protection:
    ```yaml
    TodoTable:
      Type: AWS::DynamoDB::Table

@@ -48,23 +48,31 @@ export function useTodos() {
 
   const addTodo = async (text: string) => {
     if (!text.trim()) return
+    const tempId = crypto.randomUUID()
     const newTodo: Todo = {
-      id: crypto.randomUUID(),
+      id: tempId,
       text: text.trim(),
       completed: false,
     }
 
-    // Optimistic update
+    // Optimistic update with temporary ID
     setTodos((prev) => [...prev, newTodo])
 
     try {
-      await fetchWithAuth('/todos', {
+      const response = await fetchWithAuth('/todos', {
         method: 'POST',
-        body: JSON.stringify(newTodo),
+        body: JSON.stringify({ text: newTodo.text }),
       })
+      if (response.ok) {
+        const created = await response.json()
+        // Replace temp ID with server-generated ID
+        setTodos((prev) => prev.map((t) => t.id === tempId ? { ...t, id: created.todoId } : t))
+      } else {
+        throw new Error('Failed to create todo')
+      }
     } catch (error) {
       // Rollback on error
-      setTodos((prev) => prev.filter((t) => t.id !== newTodo.id))
+      setTodos((prev) => prev.filter((t) => t.id !== tempId))
       console.error('Failed to add todo:', error)
     }
   }
