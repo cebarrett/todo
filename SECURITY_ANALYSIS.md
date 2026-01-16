@@ -29,6 +29,11 @@ CloudFront (HTTPS) → S3 (private bucket)
 - Users cannot access each other's data
 - All queries scoped to authenticated user's ID
 
+### Input Validation
+- Todo text validated on create and update
+- Maximum 1000 characters enforced
+- Empty/whitespace-only text rejected
+
 ### Frontend Hosting
 - S3 bucket has all public access blocked
 - CloudFront accesses S3 via Origin Access Control (OAC)
@@ -61,28 +66,18 @@ CloudFront (HTTPS) → S3 (private bucket)
 
 | Issue | Location | Risk | Recommendation |
 |-------|----------|------|----------------|
-| No input validation on text | `handler.mjs:59` | Unbounded string could bloat DB | Add max length check (e.g., 1000 chars) |
-| Verbose error logging | `handler.mjs:31,181` | Token errors in CloudWatch | Reduce verbosity in production |
+| Verbose error logging | `handler.mjs:67` | Token errors in CloudWatch | Reduce verbosity in production |
 
 ## Recommendations
 
-### Medium Priority
-
-1. **Add input validation**:
-   ```javascript
-   if (!todo.text || todo.text.length > 1000) {
-     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid text' }) };
-   }
-   ```
-
 ### Low Priority
 
-2. **Add security headers** to CloudFront:
+1. **Add security headers** to CloudFront:
    ```yaml
    ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03  # SecurityHeadersPolicy
    ```
 
-3. **Enable DynamoDB point-in-time recovery** for data protection:
+2. **Enable DynamoDB point-in-time recovery** for data protection:
    ```yaml
    TodoTable:
      Type: AWS::DynamoDB::Table
