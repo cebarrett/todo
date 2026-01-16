@@ -22,6 +22,7 @@ CloudFront (HTTPS) → S3 (private bucket)
 - All API endpoints require valid Clerk JWT tokens
 - Token verification happens server-side in Lambda
 - Failed auth returns 401 without leaking information
+- Clerk secret stored in AWS Secrets Manager (not visible in Lambda console)
 
 ### User Isolation
 - DynamoDB partitioned by `userId` (partition key)
@@ -60,8 +61,7 @@ CloudFront (HTTPS) → S3 (private bucket)
 
 | Issue | Location | Risk | Recommendation |
 |-------|----------|------|----------------|
-| Clerk secret in env var | `template.yaml:34` | Visible in Lambda console to AWS users | Move to AWS Secrets Manager |
-| Client-generated todoId | `handler.mjs:57` | Client controls ID, could cause conflicts | Generate UUID server-side |
+| Client-generated todoId | `handler.mjs:75` | Client controls ID, could cause conflicts | Generate UUID server-side |
 
 ### Low Severity
 
@@ -86,12 +86,7 @@ CloudFront (HTTPS) → S3 (private bucket)
 
 ### Medium Priority
 
-2. **Move Clerk secret to Secrets Manager**:
-   - Create secret in AWS Secrets Manager
-   - Grant Lambda permission to read it
-   - Fetch at cold start, cache in memory
-
-3. **Add input validation**:
+2. **Add input validation**:
    ```javascript
    if (!todo.text || todo.text.length > 1000) {
      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid text' }) };

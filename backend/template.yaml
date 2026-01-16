@@ -3,10 +3,10 @@ Transform: AWS::Serverless-2016-10-31
 Description: Todo App API
 
 Parameters:
-  ClerkSecretKey:
+  ClerkSecretArn:
     Type: String
-    Description: Clerk Secret Key for JWT verification
-    NoEcho: true
+    Description: ARN of the Clerk secret in AWS Secrets Manager
+    Default: arn:aws:secretsmanager:us-west-2:894183034230:secret:todo-app/clerk-secret-key-8Y79tq
 
   DomainName:
     Type: String
@@ -30,8 +30,7 @@ Globals:
     Environment:
       Variables:
         TABLE_NAME: !Ref TodoTable
-        # TODO: Move to AWS Secrets Manager to avoid exposing secret in Lambda console
-        CLERK_SECRET_KEY: !Ref ClerkSecretKey
+        CLERK_SECRET_ARN: !Ref ClerkSecretArn
 
 Resources:
   TodoTable:
@@ -82,6 +81,11 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TodoTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref ClerkSecretArn
       Events:
         ListTodos:
           Type: HttpApi
