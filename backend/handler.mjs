@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
@@ -86,7 +87,6 @@ async function listTodos(userId) {
 }
 
 // POST /todos - Create a new todo
-// TODO: Generate todoId server-side instead of accepting client-provided ID
 async function createTodo(userId, todo) {
   // Get current todos to determine next order value
   const existing = await listTodos(userId);
@@ -94,9 +94,9 @@ async function createTodo(userId, todo) {
 
   const item = {
     userId,
-    todoId: todo.id,
+    todoId: randomUUID(),
     text: todo.text,
-    completed: todo.completed,
+    completed: todo.completed ?? false,
     order: maxOrder + 1,
     createdAt: new Date().toISOString(),
   };

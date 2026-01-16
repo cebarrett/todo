@@ -32,7 +32,7 @@ global.fetch = vi.fn((url: string, options?: RequestInit) => {
 
   if (method === 'POST' && path === '/todos') {
     const body = JSON.parse(options?.body as string)
-    const newTodo = { todoId: body.id, text: body.text, completed: body.completed }
+    const newTodo = { todoId: crypto.randomUUID(), text: body.text, completed: false }
     mockTodos.push(newTodo)
     return Promise.resolve({
       ok: true,
