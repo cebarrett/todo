@@ -29,6 +29,10 @@ CloudFront (HTTPS) → S3 (private bucket)
 - Users cannot access each other's data
 - All queries scoped to authenticated user's ID
 
+### Data Protection
+- DynamoDB point-in-time recovery enabled (35-day retention)
+- Can restore to any second within the retention window
+
 ### Input Validation
 - Todo text validated on create and update
 - Maximum 1000 characters enforced
@@ -75,15 +79,6 @@ CloudFront (HTTPS) → S3 (private bucket)
 1. **Add security headers** to CloudFront:
    ```yaml
    ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03  # SecurityHeadersPolicy
-   ```
-
-2. **Enable DynamoDB point-in-time recovery** for data protection:
-   ```yaml
-   TodoTable:
-     Type: AWS::DynamoDB::Table
-     Properties:
-       PointInTimeRecoverySpecification:
-         PointInTimeRecoveryEnabled: true
    ```
 
 ## Not Applicable / Out of Scope
