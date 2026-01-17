@@ -100,6 +100,31 @@ export function useTodos() {
     }
   }
 
+  const editTodo = async (id: string, newText: string) => {
+    const todo = todos.find((t) => t.id === id)
+    if (!todo || !newText.trim()) return
+
+    const trimmedText = newText.trim()
+
+    // Optimistic update
+    setTodos((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, text: trimmedText } : t))
+    )
+
+    try {
+      await fetchWithAuth(`/todos/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ text: trimmedText, completed: todo.completed }),
+      })
+    } catch (error) {
+      // Rollback on error
+      setTodos((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, text: todo.text } : t))
+      )
+      console.error('Failed to edit todo:', error)
+    }
+  }
+
   const deleteTodo = async (id: string) => {
     const todo = todos.find((t) => t.id === id)
 
@@ -160,5 +185,5 @@ export function useTodos() {
     })
   }
 
-  return { todos, isLoading, addTodo, toggleTodo, deleteTodo, moveTodoUp, moveTodoDown, reorderTodos }
+  return { todos, isLoading, addTodo, toggleTodo, editTodo, deleteTodo, moveTodoUp, moveTodoDown, reorderTodos }
 }
