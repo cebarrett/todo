@@ -206,3 +206,6 @@ Outputs:
   FrontendBucketName:
     Description: S3 bucket name for frontend deployment
     Value: !Ref FrontendBucket
+  CloudFrontDistributionId:
+    Description: CloudFront distribution ID (for cache invalidation)
+    Value: !Ref CloudFrontDistribution
