@@ -78,8 +78,8 @@ sam deploy              # All params in samconfig.toml (secret in AWS Secrets Ma
 
 # Deploy frontend to S3/CloudFront
 npm run build
-aws s3 sync dist/ s3://<bucket-name>/ --delete
-aws cloudfront create-invalidation --distribution-id <dist-id> --paths "/*"  # Optional: clear cache
+aws s3 sync dist/ s3://todo-app-frontend-894183034230/ --delete
+aws cloudfront create-invalidation --distribution-id E1KPC5V7ZEH63R --paths "/*"  # Required after deploy
 ```
 
 ## Environment Variables
