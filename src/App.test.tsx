@@ -352,4 +352,155 @@ describe('App', () => {
     expect(foundDragHandle).toBe(true)
     expect(dragHandle).toHaveFocus()
   })
+
+  it('clicking edit button shows input field', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Add a new todo...')).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'Buy milk')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    expect(screen.getByText('Buy milk')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'edit' }))
+
+    const editInput = screen.getByRole('textbox', { name: 'edit todo text' })
+    expect(editInput).toBeInTheDocument()
+    expect(editInput).toHaveValue('Buy milk')
+  })
+
+  it('pressing Enter saves edit and exits edit mode', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Add a new todo...')).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'Buy milk')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    await user.click(screen.getByRole('button', { name: 'edit' }))
+
+    const editInput = screen.getByRole('textbox', { name: 'edit todo text' })
+    await user.clear(editInput)
+    await user.type(editInput, 'Buy eggs')
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox', { name: 'edit todo text' })).not.toBeInTheDocument()
+    })
+    expect(screen.getByText('Buy eggs')).toBeInTheDocument()
+  })
+
+  it('pressing Escape cancels edit and reverts text', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Add a new todo...')).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'Buy milk')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    await user.click(screen.getByRole('button', { name: 'edit' }))
+
+    const editInput = screen.getByRole('textbox', { name: 'edit todo text' })
+    await user.clear(editInput)
+    await user.type(editInput, 'Buy eggs')
+    await user.keyboard('{Escape}')
+
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox', { name: 'edit todo text' })).not.toBeInTheDocument()
+    })
+    expect(screen.getByText('Buy milk')).toBeInTheDocument()
+    expect(screen.queryByText('Buy eggs')).not.toBeInTheDocument()
+  })
+
+  it('blur saves edit', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Add a new todo...')).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'Buy milk')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    await user.click(screen.getByRole('button', { name: 'edit' }))
+
+    const editInput = screen.getByRole('textbox', { name: 'edit todo text' })
+    await user.clear(editInput)
+    await user.type(editInput, 'Buy eggs')
+    // Click elsewhere to trigger blur
+    await user.click(document.body)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox', { name: 'edit todo text' })).not.toBeInTheDocument()
+    })
+    expect(screen.getByText('Buy eggs')).toBeInTheDocument()
+  })
+
+  it('does not save empty text when editing', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Add a new todo...')).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'Buy milk')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    await user.click(screen.getByRole('button', { name: 'edit' }))
+
+    const editInput = screen.getByRole('textbox', { name: 'edit todo text' })
+    await user.clear(editInput)
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox', { name: 'edit todo text' })).not.toBeInTheDocument()
+    })
+    // Original text should remain since empty text is not saved
+    expect(screen.getByText('Buy milk')).toBeInTheDocument()
+  })
+
+  it('disables other buttons while editing', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Add a new todo...')).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText('Add a new todo...')
+    await user.type(input, 'First')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.type(input, 'Second')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    const editButtons = screen.getAllByRole('button', { name: 'edit' })
+    await user.click(editButtons[0])
+
+    // While editing first item, these buttons should be disabled
+    const moveUpButtons = screen.getAllByRole('button', { name: 'move up' })
+    const moveDownButtons = screen.getAllByRole('button', { name: 'move down' })
+    const deleteButtons = screen.getAllByRole('button', { name: 'delete' })
+
+    expect(moveUpButtons[0]).toBeDisabled()
+    expect(moveDownButtons[0]).toBeDisabled()
+    expect(deleteButtons[0]).toBeDisabled()
+    expect(editButtons[0]).toBeDisabled()
+  })
 })

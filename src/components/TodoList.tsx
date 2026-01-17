@@ -19,13 +19,14 @@ import {
 interface TodoListProps {
   todos: Todo[]
   onToggle: (id: string) => void
+  onEdit: (id: string, newText: string) => void
   onDelete: (id: string) => void
   onMoveUp: (id: string) => void
   onMoveDown: (id: string) => void
   onReorder: (oldIndex: number, newIndex: number) => void
 }
 
-export function TodoList({ todos, onToggle, onDelete, onMoveUp, onMoveDown, onReorder }: TodoListProps) {
+export function TodoList({ todos, onToggle, onEdit, onDelete, onMoveUp, onMoveDown, onReorder }: TodoListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -60,6 +61,7 @@ export function TodoList({ todos, onToggle, onDelete, onMoveUp, onMoveDown, onRe
                 key={todo.id}
                 todo={todo}
                 onToggle={onToggle}
+                onEdit={onEdit}
                 onDelete={onDelete}
                 onMoveUp={onMoveUp}
                 onMoveDown={onMoveDown}
