@@ -6,6 +6,10 @@ import App from './App'
 // Variable to control mock auth state
 let mockSignedIn = true
 
+// Variable to control mock theme state
+let mockResolvedMode: 'light' | 'dark' = 'light'
+const mockSetMode = vi.fn()
+
 // In-memory store for mock API
 let mockTodos: { todoId: string; text: string; completed: boolean }[] = []
 
@@ -16,6 +20,15 @@ vi.mock('@clerk/clerk-react', () => ({
   SignInButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   UserButton: () => null,
   useAuth: () => ({ getToken: () => Promise.resolve('mock-token') }),
+}))
+
+// Mock ThemeContext
+vi.mock('./theme/ThemeContext', () => ({
+  useTheme: () => ({
+    mode: 'system',
+    setMode: mockSetMode,
+    resolvedMode: mockResolvedMode,
+  }),
 }))
 
 // Mock fetch for API calls
@@ -79,6 +92,7 @@ describe('App', () => {
   beforeEach(() => {
     mockTodos = []
     mockSignedIn = true
+    mockResolvedMode = 'light'
     vi.clearAllMocks()
   })
 
@@ -502,5 +516,29 @@ describe('App', () => {
     expect(moveDownButtons[0]).toBeDisabled()
     expect(deleteButtons[0]).toBeDisabled()
     expect(editButtons[0]).toBeDisabled()
+  })
+
+  it('renders theme toggle button', () => {
+    render(<App />)
+    const toggleButton = screen.getByRole('button', { name: 'Switch to dark mode' })
+    expect(toggleButton).toBeInTheDocument()
+  })
+
+  it('clicking theme toggle calls setMode with opposite mode', async () => {
+    const user = userEvent.setup()
+    mockResolvedMode = 'light'
+    render(<App />)
+
+    const toggleButton = screen.getByRole('button', { name: 'Switch to dark mode' })
+    await user.click(toggleButton)
+
+    expect(mockSetMode).toHaveBeenCalledWith('dark')
+  })
+
+  it('theme toggle shows correct aria-label for dark mode', () => {
+    mockResolvedMode = 'dark'
+    render(<App />)
+    const toggleButton = screen.getByRole('button', { name: 'Switch to light mode' })
+    expect(toggleButton).toBeInTheDocument()
   })
 })

@@ -1,11 +1,14 @@
-import { Container, Typography, Box, Button, CircularProgress } from '@mui/material'
+import { Container, Typography, Box, Button, CircularProgress, IconButton } from '@mui/material'
+import { DarkMode, LightMode } from '@mui/icons-material'
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
 import { TodoInput } from './components/TodoInput'
 import { TodoList } from './components/TodoList'
 import { useTodos } from './hooks/useTodos'
+import { useTheme } from './theme/ThemeContext'
 
 function App() {
   const { todos, isLoading, addTodo, toggleTodo, editTodo, deleteTodo, moveTodoUp, moveTodoDown, reorderTodos } = useTodos()
+  const { resolvedMode, setMode } = useTheme()
 
   return (
     <Container maxWidth="sm">
@@ -14,14 +17,22 @@ function App() {
           <Typography variant="h3" component="h1">
             Todo List
           </Typography>
-          <SignedIn>
-            <UserButton />
-          </SignedIn>
-          <SignedOut>
-            <SignInButton mode="modal">
-              <Button variant="contained">Sign In</Button>
-            </SignInButton>
-          </SignedOut>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton
+              onClick={() => setMode(resolvedMode === 'dark' ? 'light' : 'dark')}
+              aria-label={`Switch to ${resolvedMode === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {resolvedMode === 'dark' ? <LightMode /> : <DarkMode />}
+            </IconButton>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
+            <SignedOut>
+              <SignInButton mode="modal">
+                <Button variant="contained">Sign In</Button>
+              </SignInButton>
+            </SignedOut>
+          </Box>
         </Box>
 
         <SignedIn>
