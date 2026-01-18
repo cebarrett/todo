@@ -27,6 +27,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   )
 
   // Listen for system preference changes
+  // TODO: Chrome on macOS doesn't fire this event reliably - may need polling fallback
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = (e: MediaQueryListEvent) => {
