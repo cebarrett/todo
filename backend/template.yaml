@@ -223,22 +223,22 @@ Resources:
       Protocol: sms
       Endpoint: !Ref AlertPhoneNumber
 
-  LambdaErrorAlarm:
+  ApiErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Condition: HasAlertPhone
     Properties:
-      AlarmName: todo-app-lambda-errors
-      AlarmDescription: Triggers when Lambda error rate spikes
-      MetricName: Errors
-      Namespace: AWS/Lambda
+      AlarmName: todo-app-api-5xx-errors
+      AlarmDescription: Triggers when API 5xx error rate spikes
+      MetricName: 5xx
+      Namespace: AWS/ApiGateway
       Statistic: Sum
       Period: 300  # 5 minutes
       EvaluationPeriods: 1
       Threshold: !Ref ErrorThreshold
       ComparisonOperator: GreaterThanOrEqualToThreshold
       Dimensions:
-        - Name: FunctionName
-          Value: !Ref TodoFunction
+        - Name: ApiId
+          Value: !Ref TodoApi
       AlarmActions:
         - !Ref ErrorAlertTopic
       OKActions:
