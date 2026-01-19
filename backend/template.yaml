@@ -18,7 +18,18 @@ Parameters:
     Description: ACM certificate ARN (must be in us-east-1). Required if DomainName is set.
     Default: ""
 
+  AlertPhoneNumber:
+    Type: String
+    Description: Phone number for SMS alerts (E.164 format, e.g., +15551234567). Leave empty to disable SMS alerts.
+    Default: ""
+
+  ErrorThreshold:
+    Type: Number
+    Description: Number of errors in 5 minutes to trigger an alert
+    Default: 5
+
 Conditions:
+  HasAlertPhone: !Not [!Equals [!Ref AlertPhoneNumber, ""]]
   HasCustomDomain: !And
     - !Not [!Equals [!Ref DomainName, ""]]
     - !Not [!Equals [!Ref CertificateArn, ""]]
@@ -196,6 +207,44 @@ Resources:
             ResponseCode: 200
             ResponsePagePath: /index.html
 
+  # Error alerting resources
+  ErrorAlertTopic:
+    Type: AWS::SNS::Topic
+    Condition: HasAlertPhone
+    Properties:
+      TopicName: todo-app-error-alerts
+      DisplayName: Todo App Errors
+
+  ErrorAlertSmsSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertPhone
+    Properties:
+      TopicArn: !Ref ErrorAlertTopic
+      Protocol: sms
+      Endpoint: !Ref AlertPhoneNumber
+
+  LambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasAlertPhone
+    Properties:
+      AlarmName: todo-app-lambda-errors
+      AlarmDescription: Triggers when Lambda error rate spikes
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300  # 5 minutes
+      EvaluationPeriods: 1
+      Threshold: !Ref ErrorThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref TodoFunction
+      AlarmActions:
+        - !Ref ErrorAlertTopic
+      OKActions:
+        - !Ref ErrorAlertTopic
+      TreatMissingData: notBreaching
+
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
@@ -209,3 +258,7 @@ Outputs:
   CloudFrontDistributionId:
     Description: CloudFront distribution ID (for cache invalidation)
     Value: !Ref CloudFrontDistribution
+  ErrorAlertTopicArn:
+    Description: SNS topic ARN for error alerts
+    Condition: HasAlertPhone
+    Value: !Ref ErrorAlertTopic
