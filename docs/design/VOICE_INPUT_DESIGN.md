@@ -78,14 +78,7 @@ The cost trade-off (~$7.50/month) is worth the seamless multilingual experience.
 
 #### VoiceInput Component
 
-```typescript
-interface VoiceInputProps {
-  onTranscript: (text: string, language?: string) => void;
-  disabled?: boolean;
-}
-
-type VoiceInputState = 'idle' | 'listening' | 'processing' | 'error';
-```
+The VoiceInput component renders a microphone button that cycles through four states: idle, listening, processing, and error. It accepts an `onTranscript` callback that receives the transcribed text and detected language, plus an optional `disabled` prop.
 
 **Visual States:**
 
@@ -98,7 +91,7 @@ type VoiceInputState = 'idle' | 'listening' | 'processing' | 'error';
 
 #### UI Integration
 
-Modify `TodoInput.tsx` to include the mic button:
+The mic button sits between the text input and the Add button in TodoInput:
 
 ```
 ┌────────────────────────────────────────────────────┐
@@ -109,89 +102,21 @@ Modify `TodoInput.tsx` to include the mic button:
 └────────────────────────────────────────────────────┘
 ```
 
-#### Audio Capture Implementation
+#### useVoiceInput Hook
 
-```typescript
-const useVoiceInput = () => {
-  const [state, setState] = useState<VoiceInputState>('idle');
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+The hook manages the recording lifecycle:
 
-  const startRecording = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        sampleRate: 16000,
-      }
-    });
+1. **startRecording**: Requests microphone permission via `getUserMedia`, creates a MediaRecorder with webm/opus format, and begins collecting audio chunks in 100ms intervals. Sets state to "listening".
 
-    const recorder = new MediaRecorder(stream, {
-      mimeType: 'audio/webm;codecs=opus'
-    });
+2. **stopRecording**: Stops the MediaRecorder, assembles chunks into a single audio blob, releases the microphone, sends the blob to the `/transcribe` endpoint, and returns the transcription result. Transitions through "processing" state while waiting for the API response.
 
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
+3. **State management**: Tracks current state (idle/listening/processing/error) and exposes it to the component for UI rendering.
 
-    recorder.start(100); // Collect in 100ms chunks
-    mediaRecorderRef.current = recorder;
-    setState('listening');
-  };
-
-  const stopRecording = async (): Promise<TranscriptionResult> => {
-    return new Promise((resolve) => {
-      const recorder = mediaRecorderRef.current;
-      if (!recorder) return;
-
-      recorder.onstop = async () => {
-        setState('processing');
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        chunksRef.current = [];
-
-        // Send to backend for transcription
-        const result = await transcribe(audioBlob);
-        setState('idle');
-        resolve(result);
-      };
-
-      recorder.stop();
-      recorder.stream.getTracks().forEach(track => track.stop());
-    });
-  };
-
-  return { state, startRecording, stopRecording };
-};
-```
+Audio settings should enable echo cancellation and noise suppression for cleaner recordings.
 
 #### Transcription API Call
 
-```typescript
-interface TranscriptionResult {
-  text: string;
-  language: string;
-}
-
-const transcribe = async (audioBlob: Blob): Promise<TranscriptionResult> => {
-  const token = await getToken();
-  const formData = new FormData();
-  formData.append('audio', audioBlob, 'recording.webm');
-
-  const response = await fetch(`${API_URL}/transcribe`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error('Transcription failed');
-  }
-
-  return response.json();
-};
-```
+The frontend sends the audio blob as multipart form data to the `/transcribe` endpoint with the user's auth token. The response includes both the transcribed text and the detected language code. On error, the hook surfaces an appropriate error message to display.
 
 ### Backend Changes
 
@@ -201,141 +126,50 @@ const transcribe = async (audioBlob: Blob): Promise<TranscriptionResult> => {
 |--------|------|---------|
 | POST | `/transcribe` | Convert audio to text via Whisper |
 
-**Request:**
-```
-POST /transcribe
-Content-Type: multipart/form-data
-Authorization: Bearer <token>
+**Request:** Multipart form data with `audio` field containing the recording, plus Bearer token authorization.
 
-audio: <binary audio data>
-```
+**Response:** JSON with `text` (the transcription) and `language` (ISO 639-1 code of detected language).
 
-**Response:**
-```json
-{
-  "text": "Comprar leche y pan",
-  "language": "es"
-}
-```
+#### Lambda Handler
 
-The `language` field returns the ISO 639-1 code of the detected language, useful for analytics and future features.
+The `/transcribe` handler performs these steps:
 
-#### Lambda Handler Addition
+1. **Authentication**: Verify the Clerk JWT and extract the user ID. Return 401 if invalid.
 
-```javascript
-// backend/handler.mjs
-import { Readable } from 'stream';
-import Busboy from 'busboy';
+2. **Parse audio**: Extract the audio data from the multipart form body using a library like Busboy.
 
-case 'POST /transcribe':
-  // 1. Verify authentication
-  const userId = await verifyToken(event);
-  if (!userId) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
-  }
+3. **Validate**: Check that audio was provided and doesn't exceed 25MB. Return 400/413 for validation failures.
 
-  // 2. Parse multipart form data
-  const audioBuffer = await parseMultipartAudio(event);
+4. **Call Whisper**: Forward the audio to OpenAI's `/v1/audio/transcriptions` endpoint with model `whisper-1` and `response_format` set to `verbose_json` to include language detection.
 
-  // 3. Validate audio
-  if (!audioBuffer || audioBuffer.length === 0) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'No audio provided' }) };
-  }
-  if (audioBuffer.length > 25 * 1024 * 1024) {
-    return { statusCode: 413, body: JSON.stringify({ error: 'Audio too large (max 25MB)' }) };
-  }
-
-  // 4. Call Whisper API
-  const formData = new FormData();
-  formData.append('file', new Blob([audioBuffer]), 'audio.webm');
-  formData.append('model', 'whisper-1');
-  formData.append('response_format', 'verbose_json'); // Includes language detection
-
-  const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: formData,
-  });
-
-  if (!whisperResponse.ok) {
-    console.error('Whisper API error:', await whisperResponse.text());
-    return { statusCode: 502, body: JSON.stringify({ error: 'Transcription service error' }) };
-  }
-
-  // 5. Return transcription with detected language
-  const { text, language } = await whisperResponse.json();
-  return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: text.trim(), language }),
-  };
-```
+5. **Return result**: Extract the text and language from Whisper's response and return as JSON. Log and return 502 on Whisper API errors.
 
 #### Infrastructure Changes
 
-**`backend/template.yaml` additions:**
+**template.yaml updates:**
+- Add route for `POST /transcribe` pointing to the Lambda function
+- Increase Lambda memory to 512MB for audio processing
+- Increase timeout to 30 seconds for Whisper API latency
+- Add `OPENAI_API_KEY` environment variable resolved from Secrets Manager
 
-```yaml
-# API Gateway route
-/transcribe:
-  post:
-    x-amazon-apigateway-integration:
-      httpMethod: POST
-      type: aws_proxy
-      uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoFunction.Arn}/invocations
-
-# Lambda configuration updates
-TodoFunction:
-  Properties:
-    MemorySize: 512          # Increased for audio processing
-    Timeout: 30              # Longer timeout for Whisper API calls
-    Environment:
-      Variables:
-        OPENAI_API_KEY: '{{resolve:secretsmanager:todo-app-secrets:SecretString:OPENAI_API_KEY}}'
-
-# Add busboy dependency for multipart parsing
-```
-
-**`backend/package.json` addition:**
-
-```json
-{
-  "dependencies": {
-    "busboy": "^1.6.0"
-  }
-}
-```
+**package.json updates:**
+- Add `busboy` dependency for parsing multipart form data
 
 ### User Experience Flow
 
-```
-1. User clicks mic button
-   └─▶ Browser shows permission prompt (first time only)
+1. **User clicks mic button** → Browser shows permission prompt (first time only)
 
-2. Permission granted
-   └─▶ UI shows "listening" state with red pulsing mic
-   └─▶ Waveform animation shows audio levels
+2. **Permission granted** → UI shows "listening" state with red pulsing mic and waveform animation
 
-3. User speaks (any language): "Comprar leche and pick up kids"
-   └─▶ Audio captured via MediaRecorder
+3. **User speaks** (any language): "Comprar leche and pick up kids" → Audio captured via MediaRecorder
 
-4. User clicks mic again OR 2s silence detected
-   └─▶ Recording stops
-   └─▶ UI shows "processing" spinner
+4. **User clicks mic again OR 2s silence detected** → Recording stops, UI shows "processing" spinner
 
-5. Audio sent to /transcribe endpoint
-   └─▶ Whisper auto-detects language
-   └─▶ Returns accurate transcription
+5. **Audio sent to /transcribe** → Whisper auto-detects language, returns accurate transcription
 
-6. Transcript received
-   └─▶ Text populates input field: "Comprar leche and pick up kids"
-   └─▶ Input field focused for editing
+6. **Transcript received** → Text populates input field, input field receives focus for editing
 
-7. User reviews and presses Enter or clicks Add
-   └─▶ Normal todo creation flow
-```
+7. **User reviews and submits** → Normal todo creation flow
 
 ### Error Handling
 
@@ -351,15 +185,9 @@ TodoFunction:
 ### Accessibility
 
 - **Keyboard shortcut**: `Ctrl+Shift+M` (Cmd+Shift+M on Mac) toggles recording
-- **ARIA labels**:
-  - Idle: "Start voice input"
-  - Listening: "Recording, tap to stop"
-  - Processing: "Processing speech"
-- **Screen reader announcements**:
-  - "Recording started"
-  - "Recording stopped, processing"
-  - "Transcription complete: [text]"
-- **Focus management**: Return focus to input field after transcription
+- **ARIA labels**: Dynamic based on state - "Start voice input", "Recording, tap to stop", "Processing speech"
+- **Screen reader announcements**: Announce state transitions and completed transcription
+- **Focus management**: Return focus to input field after transcription completes
 
 ### Browser Support
 
@@ -376,17 +204,7 @@ MediaRecorder API is supported in all modern browsers:
 
 ### Feature Detection
 
-```typescript
-const supportsVoiceInput = (): boolean => {
-  return !!(
-    navigator.mediaDevices?.getUserMedia &&
-    window.MediaRecorder
-  );
-};
-
-// Hide mic button if not supported
-{supportsVoiceInput() && <VoiceInput onTranscript={handleTranscript} />}
-```
+Before rendering the mic button, check for MediaRecorder and getUserMedia support. Hide the button entirely on unsupported browsers rather than showing a disabled state.
 
 ## Implementation Plan
 
