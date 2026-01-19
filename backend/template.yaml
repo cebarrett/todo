@@ -30,6 +30,7 @@ Globals:
     Environment:
       Variables:
         TABLE_NAME: !Ref TodoTable
+        USER_MAPPING_TABLE_NAME: !Ref UserMappingTable
         CLERK_SECRET_ARN: !Ref ClerkSecretArn
 
 Resources:
@@ -48,6 +49,20 @@ Resources:
           KeyType: HASH
         - AttributeName: todoId
           KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  UserMappingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: todo-app-user-mappings
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: externalId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: externalId
+          KeyType: HASH
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
 
@@ -83,6 +98,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TodoTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserMappingTable
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow

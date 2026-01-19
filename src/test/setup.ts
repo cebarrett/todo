@@ -1,5 +1,8 @@
 import '@testing-library/jest-dom'
 
+// Set up environment variables for tests
+import.meta.env.VITE_API_URL = 'http://localhost:3000'
+
 const localStorageMock = (() => {
   let store: Record<string, string> = {}
   return {

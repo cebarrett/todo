@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, PutCommand, UpdateCommand, DeleteCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { verifyToken } from '@clerk/backend';
 
@@ -8,6 +8,7 @@ const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const secretsClient = new SecretsManagerClient({});
 const TABLE_NAME = process.env.TABLE_NAME;
+const USER_MAPPING_TABLE_NAME = process.env.USER_MAPPING_TABLE_NAME;
 const CLERK_SECRET_ARN = process.env.CLERK_SECRET_ARN;
 
 // Cache the secret in memory (persists across warm invocations)
@@ -42,7 +43,47 @@ function getCorsHeaders(event) {
   };
 }
 
-// Verify Clerk JWT and extract userId
+// Get or create internal user ID from external auth provider ID
+// This decouples our data from the auth provider (e.g., Clerk)
+async function getOrCreateAppUserId(externalId, provider = 'clerk') {
+  // Look up existing mapping
+  const result = await docClient.send(new GetCommand({
+    TableName: USER_MAPPING_TABLE_NAME,
+    Key: { externalId },
+  }));
+
+  if (result.Item) {
+    return result.Item.userId;
+  }
+
+  // Create new mapping
+  const userId = randomUUID();
+  try {
+    await docClient.send(new PutCommand({
+      TableName: USER_MAPPING_TABLE_NAME,
+      Item: {
+        externalId,
+        userId,
+        provider,
+        createdAt: new Date().toISOString(),
+      },
+      ConditionExpression: 'attribute_not_exists(externalId)',
+    }));
+    return userId;
+  } catch (error) {
+    // Handle race condition: another request created the mapping first
+    if (error.name === 'ConditionalCheckFailedException') {
+      const retryResult = await docClient.send(new GetCommand({
+        TableName: USER_MAPPING_TABLE_NAME,
+        Key: { externalId },
+      }));
+      return retryResult.Item.userId;
+    }
+    throw error;
+  }
+}
+
+// Verify Clerk JWT and return internal app user ID
 // Retries with fresh secret on failure (handles key rotation)
 async function authenticateRequest(event) {
   const authHeader = event.headers?.authorization || event.headers?.Authorization;
@@ -51,25 +92,39 @@ async function authenticateRequest(event) {
   }
 
   const token = authHeader.substring(7);
+  let clerkUserId = null;
 
   // Try with cached secret first
   try {
     const secretKey = await getClerkSecretKey();
-    const { sub: userId } = await verifyToken(token, { secretKey });
-    return userId;
+    const { sub } = await verifyToken(token, { secretKey });
+    clerkUserId = sub;
   } catch (error) {
     // If verification failed and we used a cached key, retry with fresh secret
     if (cachedClerkSecretKey) {
       try {
         const freshSecretKey = await getClerkSecretKey(true);
-        const { sub: userId } = await verifyToken(token, { secretKey: freshSecretKey });
-        return userId;
+        const { sub } = await verifyToken(token, { secretKey: freshSecretKey });
+        clerkUserId = sub;
       } catch (retryError) {
         console.error('Token verification failed after retry:', retryError);
         return null;
       }
+    } else {
+      console.error('Token verification failed:', error);
+      return null;
     }
-    console.error('Token verification failed:', error);
+  }
+
+  if (!clerkUserId) {
+    return null;
+  }
+
+  // Map external Clerk ID to internal app user ID
+  try {
+    return await getOrCreateAppUserId(clerkUserId, 'clerk');
+  } catch (error) {
+    console.error('Failed to get/create app user ID:', error);
     return null;
   }
 }
