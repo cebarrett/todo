@@ -1,0 +1,14 @@
+#set($todos = [])
+#foreach($item in $ctx.result.items)
+  #set($todo = {
+    "id": $item.todoId,
+    "text": $item.text,
+    "completed": $item.completed,
+    "order": $item.order,
+    "createdAt": $item.createdAt
+  })
+  $util.qr($todos.add($todo))
+#end
+## Sort by order field
+#set($sorted = $util.list.sortList($todos, false, "order"))
+$util.toJson($sorted)

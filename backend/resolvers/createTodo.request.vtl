@@ -1,0 +1,16 @@
+#set($todoId = $util.autoId())
+#set($now = $util.time.nowISO8601())
+{
+  "version": "2018-05-29",
+  "operation": "PutItem",
+  "key": {
+    "userId": $util.dynamodb.toDynamoDBJson($ctx.identity.resolverContext.userId),
+    "todoId": $util.dynamodb.toDynamoDBJson($todoId)
+  },
+  "attributeValues": {
+    "text": $util.dynamodb.toDynamoDBJson($ctx.args.input.text),
+    "completed": $util.dynamodb.toDynamoDBJson(false),
+    "order": $util.dynamodb.toDynamoDBJson($util.time.nowEpochMilliSeconds()),
+    "createdAt": $util.dynamodb.toDynamoDBJson($now)
+  }
+}
