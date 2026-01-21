@@ -1,3 +1,6 @@
+#if($ctx.args.input.text.length() > 500)
+  $util.error("Todo text must be 500 characters or less", "ValidationError")
+#end
 #set($todoId = $util.autoId())
 #set($now = $util.time.nowISO8601())
 {
