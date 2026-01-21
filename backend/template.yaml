@@ -196,10 +196,215 @@ Resources:
             ResponseCode: 200
             ResponsePagePath: /index.html
 
+  # ===========================================
+  # AppSync GraphQL API (Phase 1 Migration)
+  # ===========================================
+
+  TodoGraphQLApi:
+    Type: AWS::AppSync::GraphQLApi
+    Properties:
+      Name: todo-app-graphql
+      AuthenticationType: AWS_LAMBDA
+      LambdaAuthorizerConfig:
+        AuthorizerUri: !GetAtt AuthFunction.Arn
+        AuthorizerResultTtlInSeconds: 300
+        IdentityValidationExpression: "^Bearer .+$"
+
+  TodoGraphQLSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt TodoGraphQLApi.ApiId
+      DefinitionS3Location: ./schema.graphql
+
+  # Auth Lambda function for AppSync
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: todo-app-auth
+      CodeUri: ./
+      Handler: auth.handler
+      MemorySize: 256
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref ClerkSecretArn
+
+  # Permission for AppSync to invoke auth Lambda
+  AuthFunctionAppSyncPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt AuthFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: appsync.amazonaws.com
+      SourceArn: !GetAtt TodoGraphQLApi.Arn
+
+  # Reorder Lambda function for AppSync
+  ReorderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: todo-app-reorder
+      CodeUri: ./
+      Handler: reorder.handler
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TodoTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TodoTable
+
+  # IAM Role for AppSync to access DynamoDB
+  AppSyncDynamoDBRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: todo-app-appsync-dynamodb-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: appsync.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                Resource: !GetAtt TodoTable.Arn
+
+  # IAM Role for AppSync to invoke Lambda
+  AppSyncLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: todo-app-appsync-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: appsync.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaInvoke
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt ReorderFunction.Arn
+
+  # DynamoDB Data Source
+  TodosDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt TodoGraphQLApi.ApiId
+      Name: TodosTable
+      Type: AMAZON_DYNAMODB
+      DynamoDBConfig:
+        AwsRegion: !Ref AWS::Region
+        TableName: !Ref TodoTable
+      ServiceRoleArn: !GetAtt AppSyncDynamoDBRole.Arn
+
+  # Lambda Data Source for reorder operation
+  ReorderLambdaDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt TodoGraphQLApi.ApiId
+      Name: ReorderLambda
+      Type: AWS_LAMBDA
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt ReorderFunction.Arn
+      ServiceRoleArn: !GetAtt AppSyncLambdaRole.Arn
+
+  # ===========================================
+  # AppSync Resolvers
+  # ===========================================
+
+  ListTodosResolver:
+    Type: AWS::AppSync::Resolver
+    DependsOn: TodoGraphQLSchema
+    Properties:
+      ApiId: !GetAtt TodoGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: listTodos
+      DataSourceName: !GetAtt TodosDataSource.Name
+      RequestMappingTemplateS3Location: ./resolvers/listTodos.request.vtl
+      ResponseMappingTemplateS3Location: ./resolvers/listTodos.response.vtl
+
+  GetTodoResolver:
+    Type: AWS::AppSync::Resolver
+    DependsOn: TodoGraphQLSchema
+    Properties:
+      ApiId: !GetAtt TodoGraphQLApi.ApiId
+      TypeName: Query
+      FieldName: getTodo
+      DataSourceName: !GetAtt TodosDataSource.Name
+      RequestMappingTemplateS3Location: ./resolvers/getTodo.request.vtl
+      ResponseMappingTemplateS3Location: ./resolvers/getTodo.response.vtl
+
+  CreateTodoResolver:
+    Type: AWS::AppSync::Resolver
+    DependsOn: TodoGraphQLSchema
+    Properties:
+      ApiId: !GetAtt TodoGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: createTodo
+      DataSourceName: !GetAtt TodosDataSource.Name
+      RequestMappingTemplateS3Location: ./resolvers/createTodo.request.vtl
+      ResponseMappingTemplateS3Location: ./resolvers/createTodo.response.vtl
+
+  UpdateTodoResolver:
+    Type: AWS::AppSync::Resolver
+    DependsOn: TodoGraphQLSchema
+    Properties:
+      ApiId: !GetAtt TodoGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: updateTodo
+      DataSourceName: !GetAtt TodosDataSource.Name
+      RequestMappingTemplateS3Location: ./resolvers/updateTodo.request.vtl
+      ResponseMappingTemplateS3Location: ./resolvers/updateTodo.response.vtl
+
+  DeleteTodoResolver:
+    Type: AWS::AppSync::Resolver
+    DependsOn: TodoGraphQLSchema
+    Properties:
+      ApiId: !GetAtt TodoGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: deleteTodo
+      DataSourceName: !GetAtt TodosDataSource.Name
+      RequestMappingTemplateS3Location: ./resolvers/deleteTodo.request.vtl
+      ResponseMappingTemplateS3Location: ./resolvers/deleteTodo.response.vtl
+
+  ReorderTodosResolver:
+    Type: AWS::AppSync::Resolver
+    DependsOn: TodoGraphQLSchema
+    Properties:
+      ApiId: !GetAtt TodoGraphQLApi.ApiId
+      TypeName: Mutation
+      FieldName: reorderTodos
+      DataSourceName: !GetAtt ReorderLambdaDataSource.Name
+      RequestMappingTemplateS3Location: ./resolvers/reorderTodos.request.vtl
+      ResponseMappingTemplateS3Location: ./resolvers/reorderTodos.response.vtl
+
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${TodoApi}.execute-api.${AWS::Region}.amazonaws.com"
+  GraphQLApiEndpoint:
+    Description: AppSync GraphQL endpoint URL
+    Value: !GetAtt TodoGraphQLApi.GraphQLUrl
+  GraphQLApiId:
+    Description: AppSync GraphQL API ID
+    Value: !GetAtt TodoGraphQLApi.ApiId
   FrontendUrl:
     Description: CloudFront distribution URL
     Value: !Sub "https://${CloudFrontDistribution.DomainName}"

@@ -1,0 +1,44 @@
+type Todo {
+  id: ID!
+  text: String!
+  completed: Boolean!
+  order: Int!
+  createdAt: AWSDateTime!
+}
+
+input CreateTodoInput {
+  text: String!
+}
+
+input UpdateTodoInput {
+  id: ID!
+  text: String
+  completed: Boolean
+}
+
+input ReorderTodosInput {
+  todoIds: [ID!]!
+}
+
+type Query {
+  getTodo(id: ID!): Todo
+  listTodos: [Todo!]!
+}
+
+type Mutation {
+  createTodo(input: CreateTodoInput!): Todo!
+  updateTodo(input: UpdateTodoInput!): Todo!
+  deleteTodo(id: ID!): ID!
+  reorderTodos(input: ReorderTodosInput!): [Todo!]!
+}
+
+type Subscription {
+  onTodoCreated: Todo
+    @aws_subscribe(mutations: ["createTodo"])
+  onTodoUpdated: Todo
+    @aws_subscribe(mutations: ["updateTodo"])
+  onTodoDeleted: ID
+    @aws_subscribe(mutations: ["deleteTodo"])
+  onTodosReordered: [Todo]
+    @aws_subscribe(mutations: ["reorderTodos"])
+}

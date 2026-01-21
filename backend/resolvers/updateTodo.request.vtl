@@ -1,0 +1,36 @@
+#set($expression = "SET ")
+#set($expValues = {})
+#set($expNames = {})
+
+#if($ctx.args.input.text)
+  #if($ctx.args.input.text.length() > 500)
+    $util.error("Todo text must be 500 characters or less", "ValidationError")
+  #end
+  #set($expression = "${expression}#text = :text, ")
+  $util.qr($expValues.put(":text", $util.dynamodb.toDynamoDB($ctx.args.input.text)))
+  $util.qr($expNames.put("#text", "text"))
+#end
+
+#if($util.isBoolean($ctx.args.input.completed))
+  #set($expression = "${expression}completed = :completed, ")
+  $util.qr($expValues.put(":completed", $util.dynamodb.toDynamoDB($ctx.args.input.completed)))
+#end
+
+#set($expression = $expression.substring(0, $expression.length() - 2))
+
+{
+  "version": "2018-05-29",
+  "operation": "UpdateItem",
+  "key": {
+    "userId": $util.dynamodb.toDynamoDBJson($ctx.identity.resolverContext.userId),
+    "todoId": $util.dynamodb.toDynamoDBJson($ctx.args.input.id)
+  },
+  "update": {
+    "expression": "$expression",
+    "expressionNames": $util.toJson($expNames),
+    "expressionValues": $util.toJson($expValues)
+  },
+  "condition": {
+    "expression": "attribute_exists(userId)"
+  }
+}

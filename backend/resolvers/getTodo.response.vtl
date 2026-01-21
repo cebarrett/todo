@@ -1,0 +1,11 @@
+#if($util.isNull($ctx.result))
+  $util.toJson(null)
+#else
+  {
+    "id": $util.toJson($ctx.result.todoId),
+    "text": $util.toJson($ctx.result.text),
+    "completed": $ctx.result.completed,
+    "order": $ctx.result.order,
+    "createdAt": $util.toJson($ctx.result.createdAt)
+  }
+#end

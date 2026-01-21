@@ -1,0 +1,14 @@
+{
+  "version": "2018-05-29",
+  "operation": "Invoke",
+  "payload": {
+    "identity": {
+      "resolverContext": {
+        "userId": "$ctx.identity.resolverContext.userId"
+      }
+    },
+    "arguments": {
+      "input": $util.toJson($ctx.args.input)
+    }
+  }
+}
