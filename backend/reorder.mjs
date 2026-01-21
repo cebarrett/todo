@@ -39,6 +39,11 @@ export const handler = async (event) => {
   const todosMap = new Map(todos.map(t => [t.todoId, t]));
   const validIds = new Set(todos.map(t => t.todoId));
 
+  // Require all todos to be included to ensure consistent ordering
+  if (todoIds.length !== todos.length) {
+    throw new Error('todoIds must include all todos');
+  }
+
   for (const id of todoIds) {
     if (!validIds.has(id)) {
       throw new Error(`Todo ${id} not found`);
