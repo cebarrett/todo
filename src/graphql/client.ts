@@ -16,6 +16,9 @@ export function useGraphQLClient() {
     variables?: Record<string, unknown>
   ): Promise<T> => {
     const token = await getToken()
+    if (!token) {
+      throw new Error('Authentication required')
+    }
 
     const response = await fetch(APPSYNC_URL, {
       method: 'POST',

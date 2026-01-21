@@ -4,6 +4,8 @@ import { useGraphQLClient } from '../graphql/client'
 import { LIST_TODOS, CREATE_TODO, UPDATE_TODO, DELETE_TODO, REORDER_TODOS } from '../graphql/operations'
 import type { Todo } from '../types/Todo'
 
+const MAX_TODO_LENGTH = 500
+
 export function useTodos() {
   const [todos, setTodos] = useState<Todo[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -38,6 +40,9 @@ export function useTodos() {
   const addTodo = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed) return
+    if (trimmed.length > MAX_TODO_LENGTH) {
+      throw new Error(`Todo text cannot exceed ${MAX_TODO_LENGTH} characters`)
+    }
 
     const tempId = crypto.randomUUID()
     const tempTodo: Todo = {
@@ -86,6 +91,9 @@ export function useTodos() {
   const editTodo = useCallback(async (id: string, text: string) => {
     const trimmed = text.trim()
     if (!trimmed) return
+    if (trimmed.length > MAX_TODO_LENGTH) {
+      throw new Error(`Todo text cannot exceed ${MAX_TODO_LENGTH} characters`)
+    }
 
     const previousTodos = [...todos]
     setTodos(prev => prev.map(t =>
