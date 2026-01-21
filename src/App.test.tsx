@@ -1,7 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import App from './App'
 
 // Variable to control mock auth state
 let mockSignedIn = true
@@ -10,8 +9,12 @@ let mockSignedIn = true
 let mockResolvedMode: 'light' | 'dark' = 'light'
 const mockSetMode = vi.fn()
 
-// In-memory store for mock API
-let mockTodos: { todoId: string; text: string; completed: boolean }[] = []
+// In-memory store for mock GraphQL API
+let mockTodos: { id: string; text: string; completed: boolean; order: number; createdAt: string }[] = []
+
+// Mock GraphQL client methods
+const mockQuery = vi.fn()
+const mockMutate = vi.fn()
 
 // Mock Clerk with configurable auth state
 vi.mock('@clerk/clerk-react', () => ({
@@ -19,7 +22,10 @@ vi.mock('@clerk/clerk-react', () => ({
   SignedOut: ({ children }: { children: React.ReactNode }) => mockSignedIn ? null : <>{children}</>,
   SignInButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   UserButton: () => null,
-  useAuth: () => ({ getToken: () => Promise.resolve('mock-token') }),
+  useAuth: () => ({
+    getToken: () => Promise.resolve('mock-token'),
+    isSignedIn: mockSignedIn
+  }),
 }))
 
 // Mock ThemeContext
@@ -31,62 +37,75 @@ vi.mock('./theme/ThemeContext', () => ({
   }),
 }))
 
-// Mock fetch for API calls
-global.fetch = vi.fn((url: string, options?: RequestInit) => {
-  const path = new URL(url).pathname
-  const method = options?.method || 'GET'
+// Mock the GraphQL client
+vi.mock('./graphql/client', () => ({
+  useGraphQLClient: () => ({
+    query: mockQuery,
+    mutate: mockMutate
+  })
+}))
 
-  if (method === 'GET' && path === '/todos') {
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve(mockTodos),
-    } as Response)
-  }
+// Import App after mocks are defined
+import App from './App'
 
-  if (method === 'POST' && path === '/todos') {
-    const body = JSON.parse(options?.body as string)
-    const newTodo = { todoId: crypto.randomUUID(), text: body.text, completed: false }
-    mockTodos.push(newTodo)
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve(newTodo),
-    } as Response)
-  }
-
-  if (method === 'PUT' && path.startsWith('/todos/')) {
-    const todoId = path.split('/todos/')[1]
-    const body = JSON.parse(options?.body as string)
-    mockTodos = mockTodos.map((t) =>
-      t.todoId === todoId ? { ...t, text: body.text, completed: body.completed } : t
-    )
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({ todoId, ...body }),
-    } as Response)
-  }
-
-  if (method === 'DELETE' && path.startsWith('/todos/')) {
-    const todoId = path.split('/todos/')[1]
-    mockTodos = mockTodos.filter((t) => t.todoId !== todoId)
-    return Promise.resolve({ ok: true } as Response)
-  }
-
-  if (method === 'PATCH' && path === '/todos/reorder') {
-    const body = JSON.parse(options?.body as string)
-    const reorderedTodos: typeof mockTodos = []
-    for (const todoId of body.todoIds) {
-      const todo = mockTodos.find((t) => t.todoId === todoId)
-      if (todo) reorderedTodos.push(todo)
+// Setup GraphQL mock implementations
+function setupGraphQLMocks() {
+  mockQuery.mockImplementation(async (document: string) => {
+    if (document.includes('listTodos')) {
+      return { listTodos: mockTodos }
     }
-    mockTodos = reorderedTodos
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({ success: true }),
-    } as Response)
-  }
+    throw new Error('Unknown query')
+  })
 
-  return Promise.resolve({ ok: false } as Response)
-})
+  mockMutate.mockImplementation(async (document: string, variables?: Record<string, unknown>) => {
+    if (document.includes('createTodo')) {
+      const input = variables?.input as { text: string }
+      const newTodo = {
+        id: crypto.randomUUID(),
+        text: input.text,
+        completed: false,
+        order: Date.now(),
+        createdAt: new Date().toISOString()
+      }
+      mockTodos.push(newTodo)
+      return { createTodo: newTodo }
+    }
+
+    if (document.includes('updateTodo')) {
+      const input = variables?.input as { id: string; text?: string; completed?: boolean }
+      mockTodos = mockTodos.map(t =>
+        t.id === input.id
+          ? {
+              ...t,
+              ...(input.text !== undefined && { text: input.text }),
+              ...(input.completed !== undefined && { completed: input.completed })
+            }
+          : t
+      )
+      const updatedTodo = mockTodos.find(t => t.id === input.id)
+      return { updateTodo: updatedTodo }
+    }
+
+    if (document.includes('deleteTodo')) {
+      const id = variables?.id as string
+      mockTodos = mockTodos.filter(t => t.id !== id)
+      return { deleteTodo: id }
+    }
+
+    if (document.includes('reorderTodos')) {
+      const input = variables?.input as { todoIds: string[] }
+      const reorderedTodos: typeof mockTodos = []
+      for (const todoId of input.todoIds) {
+        const todo = mockTodos.find(t => t.id === todoId)
+        if (todo) reorderedTodos.push({ ...todo, order: reorderedTodos.length })
+      }
+      mockTodos = reorderedTodos
+      return { reorderTodos: reorderedTodos }
+    }
+
+    throw new Error('Unknown mutation')
+  })
+}
 
 describe('App', () => {
   beforeEach(() => {
@@ -94,6 +113,7 @@ describe('App', () => {
     mockSignedIn = true
     mockResolvedMode = 'light'
     vi.clearAllMocks()
+    setupGraphQLMocks()
   })
 
   it('shows sign-in prompt when signed out', () => {
