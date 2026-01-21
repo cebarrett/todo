@@ -1,189 +1,166 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@clerk/clerk-react'
-import { Todo } from '../types/Todo'
-
-const API_URL = import.meta.env.VITE_API_URL
+import { useGraphQLClient } from '../graphql/client'
+import { LIST_TODOS, CREATE_TODO, UPDATE_TODO, DELETE_TODO, REORDER_TODOS } from '../graphql/operations'
+import type { Todo } from '../types/Todo'
 
 export function useTodos() {
-  const { getToken } = useAuth()
   const [todos, setTodos] = useState<Todo[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const { isSignedIn } = useAuth()
+  const client = useGraphQLClient()
+  const clientRef = useRef(client)
+  clientRef.current = client
 
-  const fetchWithAuth = useCallback(async (path: string, options: RequestInit = {}) => {
-    const token = await getToken()
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        ...options.headers,
-      },
-    })
-    return response
-  }, [getToken])
-
-  // Fetch todos on mount
+  // Fetch todos
   useEffect(() => {
-    const loadTodos = async () => {
+    if (!isSignedIn) {
+      setTodos([])
+      setIsLoading(false)
+      return
+    }
+
+    const fetchTodos = async () => {
       try {
-        const response = await fetchWithAuth('/todos')
-        if (response.ok) {
-          const data = await response.json()
-          // Map from API format to local format
-          const mappedTodos = data.map((item: { todoId: string; text: string; completed: boolean }) => ({
-            id: item.todoId,
-            text: item.text,
-            completed: item.completed,
-          }))
-          setTodos(mappedTodos)
-        }
+        const data = await clientRef.current.query<{ listTodos: Todo[] }>(LIST_TODOS)
+        setTodos(data.listTodos)
       } catch (error) {
         console.error('Failed to fetch todos:', error)
       } finally {
         setIsLoading(false)
       }
     }
-    loadTodos()
-  }, [fetchWithAuth])
 
-  const addTodo = async (text: string) => {
-    if (!text.trim()) return
+    fetchTodos()
+  }, [isSignedIn])
+
+  // Add todo (with optimistic update)
+  const addTodo = useCallback(async (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+
     const tempId = crypto.randomUUID()
-    const newTodo: Todo = {
+    const tempTodo: Todo = {
       id: tempId,
-      text: text.trim(),
+      text: trimmed,
       completed: false,
+      order: Date.now(),
+      createdAt: new Date().toISOString()
     }
 
-    // Optimistic update with temporary ID
-    setTodos((prev) => [...prev, newTodo])
+    const previousTodos = [...todos]
+    setTodos(prev => [...prev, tempTodo])
 
     try {
-      const response = await fetchWithAuth('/todos', {
-        method: 'POST',
-        body: JSON.stringify({ text: newTodo.text }),
+      const data = await clientRef.current.mutate<{ createTodo: Todo }>(CREATE_TODO, {
+        input: { text: trimmed }
       })
-      if (response.ok) {
-        const created = await response.json()
-        // Replace temp ID with server-generated ID
-        setTodos((prev) => prev.map((t) => t.id === tempId ? { ...t, id: created.todoId } : t))
-      } else {
-        throw new Error('Failed to create todo')
-      }
+      setTodos(prev => prev.map(t => t.id === tempId ? data.createTodo : t))
     } catch (error) {
-      // Rollback on error
-      setTodos((prev) => prev.filter((t) => t.id !== tempId))
-      console.error('Failed to add todo:', error)
+      console.error('Failed to create todo:', error)
+      setTodos(previousTodos)
     }
-  }
+  }, [todos])
 
-  const toggleTodo = async (id: string) => {
-    const todo = todos.find((t) => t.id === id)
+  // Toggle todo
+  const toggleTodo = useCallback(async (id: string) => {
+    const todo = todos.find(t => t.id === id)
     if (!todo) return
 
-    // Optimistic update
-    setTodos((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
-    )
+    const previousTodos = [...todos]
+    setTodos(prev => prev.map(t =>
+      t.id === id ? { ...t, completed: !t.completed } : t
+    ))
 
     try {
-      await fetchWithAuth(`/todos/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ text: todo.text, completed: !todo.completed }),
+      await clientRef.current.mutate(UPDATE_TODO, {
+        input: { id, completed: !todo.completed }
       })
     } catch (error) {
-      // Rollback on error
-      setTodos((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, completed: todo.completed } : t))
-      )
       console.error('Failed to toggle todo:', error)
+      setTodos(previousTodos)
     }
-  }
+  }, [todos])
 
-  const editTodo = async (id: string, newText: string) => {
-    const todo = todos.find((t) => t.id === id)
-    if (!todo || !newText.trim()) return
+  // Edit todo
+  const editTodo = useCallback(async (id: string, text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
 
-    const trimmedText = newText.trim()
-
-    // Optimistic update
-    setTodos((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, text: trimmedText } : t))
-    )
+    const previousTodos = [...todos]
+    setTodos(prev => prev.map(t =>
+      t.id === id ? { ...t, text: trimmed } : t
+    ))
 
     try {
-      await fetchWithAuth(`/todos/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ text: trimmedText, completed: todo.completed }),
+      await clientRef.current.mutate(UPDATE_TODO, {
+        input: { id, text: trimmed }
       })
     } catch (error) {
-      // Rollback on error
-      setTodos((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, text: todo.text } : t))
-      )
       console.error('Failed to edit todo:', error)
+      setTodos(previousTodos)
     }
-  }
+  }, [todos])
 
-  const deleteTodo = async (id: string) => {
-    const todo = todos.find((t) => t.id === id)
-
-    // Optimistic update
-    setTodos((prev) => prev.filter((t) => t.id !== id))
+  // Delete todo
+  const deleteTodo = useCallback(async (id: string) => {
+    const previousTodos = [...todos]
+    setTodos(prev => prev.filter(t => t.id !== id))
 
     try {
-      await fetchWithAuth(`/todos/${id}`, { method: 'DELETE' })
+      await clientRef.current.mutate(DELETE_TODO, { id })
     } catch (error) {
-      // Rollback on error
-      if (todo) {
-        setTodos((prev) => [...prev, todo])
-      }
       console.error('Failed to delete todo:', error)
+      setTodos(previousTodos)
     }
-  }
+  }, [todos])
 
-  const persistOrder = async (newTodos: Todo[]) => {
+  // Reorder todos
+  const reorderTodos = useCallback(async (oldIndex: number, newIndex: number) => {
+    const previousTodos = [...todos]
+    const newTodos = [...todos]
+    const [removed] = newTodos.splice(oldIndex, 1)
+    newTodos.splice(newIndex, 0, removed)
+
+    const reorderedWithNewOrder = newTodos.map((todo, index) => ({
+      ...todo,
+      order: index
+    }))
+    setTodos(reorderedWithNewOrder)
+
     try {
-      await fetchWithAuth('/todos/reorder', {
-        method: 'PATCH',
-        body: JSON.stringify({ todoIds: newTodos.map((t) => t.id) }),
+      await clientRef.current.mutate(REORDER_TODOS, {
+        input: { todoIds: newTodos.map(t => t.id) }
       })
     } catch (error) {
-      console.error('Failed to persist order:', error)
+      console.error('Failed to reorder todos:', error)
+      setTodos(previousTodos)
     }
-  }
+  }, [todos])
 
-  const moveTodoUp = (id: string) => {
-    setTodos((prev) => {
-      const index = prev.findIndex((todo) => todo.id === id)
-      if (index <= 0) return prev
-      const newTodos = [...prev]
-      ;[newTodos[index - 1], newTodos[index]] = [newTodos[index], newTodos[index - 1]]
-      persistOrder(newTodos)
-      return newTodos
-    })
-  }
+  // Move todo up
+  const moveTodoUp = useCallback((id: string) => {
+    const index = todos.findIndex(t => t.id === id)
+    if (index <= 0) return
+    reorderTodos(index, index - 1)
+  }, [todos, reorderTodos])
 
-  const moveTodoDown = (id: string) => {
-    setTodos((prev) => {
-      const index = prev.findIndex((todo) => todo.id === id)
-      if (index < 0 || index >= prev.length - 1) return prev
-      const newTodos = [...prev]
-      ;[newTodos[index], newTodos[index + 1]] = [newTodos[index + 1], newTodos[index]]
-      persistOrder(newTodos)
-      return newTodos
-    })
-  }
+  // Move todo down
+  const moveTodoDown = useCallback((id: string) => {
+    const index = todos.findIndex(t => t.id === id)
+    if (index < 0 || index >= todos.length - 1) return
+    reorderTodos(index, index + 1)
+  }, [todos, reorderTodos])
 
-  const reorderTodos = (oldIndex: number, newIndex: number) => {
-    setTodos((prev) => {
-      const newTodos = [...prev]
-      const [removed] = newTodos.splice(oldIndex, 1)
-      newTodos.splice(newIndex, 0, removed)
-      persistOrder(newTodos)
-      return newTodos
-    })
+  return {
+    todos,
+    isLoading,
+    addTodo,
+    toggleTodo,
+    editTodo,
+    deleteTodo,
+    moveTodoUp,
+    moveTodoDown,
+    reorderTodos
   }
-
-  return { todos, isLoading, addTodo, toggleTodo, editTodo, deleteTodo, moveTodoUp, moveTodoDown, reorderTodos }
 }
